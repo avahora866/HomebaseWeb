@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { getMonthlySummary, getTransactions, uploadStatements } from './api'
+import { getMonthlySummary, getTransactions, uploadStatement } from './api'
 import { money, money2, toLocalIsoDate } from './format'
 import type { MonthlySummary, StatementUploadOutcome, Transaction } from './types'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+interface UploadItem {
+  file: File
+  status: 'pending' | 'uploading' | 'success' | 'error'
+  outcome: StatementUploadOutcome | null
+  error: string | null
+}
 
 const cal = ref(new Date())
 const transactions = ref<Transaction[]>([])
@@ -15,7 +22,7 @@ const modalDay = ref<number | null>(null)
 const uploadOpen = ref(false)
 const uploadStage = ref<'idle' | 'selected' | 'uploading' | 'done'>('idle')
 const uploadFiles = ref<File[]>([])
-const uploadOutcomes = ref<StatementUploadOutcome[]>([])
+const uploadItems = ref<UploadItem[]>([])
 const uploadError = ref<string | null>(null)
 
 const monthLabel = computed(() =>
@@ -118,7 +125,7 @@ function openUpload() {
   uploadOpen.value = true
   uploadStage.value = 'idle'
   uploadFiles.value = []
-  uploadOutcomes.value = []
+  uploadItems.value = []
   uploadError.value = null
 }
 
@@ -148,14 +155,26 @@ async function submitUpload() {
   if (!uploadFiles.value.length) return
   uploadStage.value = 'uploading'
   uploadError.value = null
-  try {
-    uploadOutcomes.value = await uploadStatements(uploadFiles.value)
-    uploadStage.value = 'done'
-    await fetchData()
-  } catch (e) {
-    uploadError.value = e instanceof Error ? e.message : 'Upload failed'
-    uploadStage.value = 'selected'
+  uploadItems.value = uploadFiles.value.map((file) => ({
+    file,
+    status: 'pending',
+    outcome: null,
+    error: null,
+  }))
+
+  for (const item of uploadItems.value) {
+    item.status = 'uploading'
+    try {
+      item.outcome = await uploadStatement(item.file)
+      item.status = item.outcome.success ? 'success' : 'error'
+    } catch (e) {
+      item.status = 'error'
+      item.error = e instanceof Error ? e.message : 'Upload failed'
+    }
   }
+
+  uploadStage.value = 'done'
+  await fetchData()
 }
 
 function fileSizeLabel(file: File): string {
@@ -251,13 +270,28 @@ function fileSizeLabel(file: File): string {
             <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
           </template>
 
-          <p v-if="uploadStage === 'uploading'" class="upload-note">Parsing {{ uploadFiles.length }} statement(s)…</p>
-
-          <template v-if="uploadStage === 'done'">
-            <div v-for="o in uploadOutcomes" :key="o.fileName" class="upload-outcome" :class="{ failed: !o.success }">
-              <span class="upload-outcome-name">{{ o.fileName }}</span>
-              <span v-if="o.success" class="upload-outcome-detail">{{ o.added }} added, {{ o.skipped }} skipped</span>
-              <span v-else class="upload-outcome-detail">{{ o.error }}</span>
+          <template v-if="uploadStage === 'uploading' || uploadStage === 'done'">
+            <p class="upload-note">
+              {{ uploadStage === 'uploading' ? `Importing ${uploadFiles.length} statement(s)…` : 'Import complete' }}
+            </p>
+            <div
+              v-for="(item, i) in uploadItems"
+              :key="`${item.file.name}-${i}`"
+              class="upload-outcome"
+              :class="{ failed: item.status === 'error' }"
+            >
+              <span class="upload-outcome-name">
+                <span v-if="item.status === 'uploading'" class="upload-spinner" aria-hidden="true"></span>
+                <span v-else-if="item.status === 'success'" class="upload-status-icon success" aria-hidden="true">✓</span>
+                <span v-else-if="item.status === 'error'" class="upload-status-icon error" aria-hidden="true">✕</span>
+                {{ item.file.name }}
+              </span>
+              <span v-if="item.status === 'pending'" class="upload-outcome-detail">Waiting…</span>
+              <span v-else-if="item.status === 'uploading'" class="upload-outcome-detail">Importing…</span>
+              <span v-else-if="item.status === 'success' && item.outcome" class="upload-outcome-detail">
+                {{ item.outcome.added }} added, {{ item.outcome.skipped }} skipped
+              </span>
+              <span v-else class="upload-outcome-detail">{{ item.outcome?.error ?? item.error }}</span>
             </div>
           </template>
         </div>
@@ -309,9 +343,14 @@ function fileSizeLabel(file: File): string {
 .upload-error { font-size: 13px; color: var(--color-accent-2-700); }
 .upload-outcome { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--color-neutral-300); font-size: 13px; }
 .upload-outcome:first-child { border-top: none; }
-.upload-outcome-name { color: var(--color-text); }
+.upload-outcome-name { color: var(--color-text); display: flex; align-items: center; gap: var(--space-2); }
 .upload-outcome-detail { color: var(--color-accent-700); text-align: right; }
 .upload-outcome.failed .upload-outcome-detail { color: var(--color-accent-2-700); }
+.upload-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--color-neutral-300); border-top-color: var(--color-accent-700); animation: upload-spin 0.7s linear infinite; flex-shrink: 0; }
+.upload-status-icon { font-size: 12px; flex-shrink: 0; }
+.upload-status-icon.success { color: var(--color-accent-700); }
+.upload-status-icon.error { color: var(--color-accent-2-700); }
+@keyframes upload-spin { to { transform: rotate(360deg); } }
 .ret-pos { color: var(--color-accent-700); }
 .ret-neg { color: var(--color-accent-2-700); }
 </style>

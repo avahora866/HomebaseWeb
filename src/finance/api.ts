@@ -58,11 +58,9 @@ export function getMonthlySummary(month: string): Promise<MonthlySummary> {
   return getJson(`/finance/budget/summary?month=${month}`)
 }
 
-export async function uploadStatements(files: File[]): Promise<StatementUploadOutcome[]> {
+export async function uploadStatement(file: File): Promise<StatementUploadOutcome> {
   const formData = new FormData()
-  for (const file of files) {
-    formData.append('files', file)
-  }
+  formData.append('files', file)
 
   const response = await fetch(`${resolveApiBaseUrl()}/finance/budget/statements`, {
     method: 'POST',
@@ -73,7 +71,17 @@ export async function uploadStatements(files: File[]): Promise<StatementUploadOu
     const body = await response.json().catch(() => null)
     throw new Error(body?.message ?? body?.detail ?? `Upload failed: ${response.status}`)
   }
-  return (await response.json()) as StatementUploadOutcome[]
+  const outcomes = (await response.json()) as StatementUploadOutcome[]
+  return (
+    outcomes[0] ?? {
+      fileName: file.name,
+      success: false,
+      bankDetected: null,
+      added: 0,
+      skipped: 0,
+      error: 'No result returned',
+    }
+  )
 }
 
 export function getTagRules(): Promise<TagRule[]> {
