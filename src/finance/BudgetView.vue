@@ -209,7 +209,11 @@ function fileSizeLabel(file: File): string {
           <div v-for="m in modalTx" :key="m.id" class="tx-row">
             <div>
               <div class="tx-desc">{{ m.description }}</div>
-              <div class="tx-meta">{{ m.source }}</div>
+              <div class="tx-meta">
+                {{ m.source }}
+                <span v-if="m.tags" class="tag tag-neutral tx-tag">{{ m.tags }}</span>
+                <span v-if="m.subscription" class="tag tag-neutral tx-tag">Subscription</span>
+              </div>
             </div>
             <span :class="m.amount >= 0 ? 'ret-pos' : 'ret-neg'">
               {{ m.amount > 0 ? '+' : '' }}{{ money2(m.amount) }}
@@ -288,7 +292,8 @@ function fileSizeLabel(file: File): string {
 .tx-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--color-neutral-300); }
 .tx-row:first-child { border-top: none; }
 .tx-desc { font-size: 14px; }
-.tx-meta { font-size: 11px; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.tx-meta { display: flex; align-items: center; gap: var(--space-2); font-size: 11px; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.tx-tag { text-transform: none; letter-spacing: 0.02em; }
 .upload-drop { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; padding: var(--space-8) var(--space-4); border: 1px dashed var(--color-neutral-400); border-radius: var(--radius-md); color: var(--color-accent-700); cursor: pointer; }
 .upload-drop:hover { background: var(--color-accent-100); border-color: var(--color-accent-500); }
 .upload-drop-title { font-size: 14px; color: var(--color-text); }

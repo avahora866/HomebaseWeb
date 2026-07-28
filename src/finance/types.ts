@@ -57,3 +57,16 @@ export interface ManualBalances {
   savingsOneBalance: number
   savingsTwoBalance: number
 }
+
+export interface TagRule {
+  id: number
+  pattern: string
+  tag: string
+  subscription: boolean
+  priority: number
+}
+
+export interface ReapplyResult {
+  checked: number
+  updated: number
+}

@@ -4,7 +4,9 @@ import type {
   MonthlySummary,
   MoneyGoal,
   PortfolioSummary,
+  ReapplyResult,
   StatementUploadOutcome,
+  TagRule,
   Transaction,
 } from './types'
 
@@ -12,6 +14,21 @@ async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${resolveApiBaseUrl()}${path}`)
   if (!response.ok) {
     throw new Error(`Request to ${path} failed: ${response.status}`)
+  }
+  return (await response.json()) as T
+}
+
+async function sendJson<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!response.ok) {
+    throw new Error(`Request to ${path} failed: ${response.status}`)
+  }
+  if (response.status === 204) {
+    return undefined as T
   }
   return (await response.json()) as T
 }
@@ -28,16 +45,8 @@ export function getManualBalances(): Promise<ManualBalances> {
   return getJson('/finance/investments/balances')
 }
 
-export async function updateManualBalances(balances: ManualBalances): Promise<ManualBalances> {
-  const response = await fetch(`${resolveApiBaseUrl()}/finance/investments/balances`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(balances),
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to save balances: ${response.status}`)
-  }
-  return (await response.json()) as ManualBalances
+export function updateManualBalances(balances: ManualBalances): Promise<ManualBalances> {
+  return sendJson('/finance/investments/balances', 'PUT', balances)
 }
 
 export function getTransactions(from: string, to: string): Promise<Transaction[]> {
@@ -64,4 +73,24 @@ export async function uploadStatements(files: File[]): Promise<StatementUploadOu
     throw new Error(body?.message ?? body?.detail ?? `Upload failed: ${response.status}`)
   }
   return (await response.json()) as StatementUploadOutcome[]
+}
+
+export function getTagRules(): Promise<TagRule[]> {
+  return getJson('/finance/budget/tag-rules')
+}
+
+export function createTagRule(rule: Omit<TagRule, 'id'>): Promise<TagRule> {
+  return sendJson('/finance/budget/tag-rules', 'POST', rule)
+}
+
+export function updateTagRule(id: number, rule: Omit<TagRule, 'id'>): Promise<TagRule> {
+  return sendJson(`/finance/budget/tag-rules/${id}`, 'PUT', rule)
+}
+
+export function deleteTagRule(id: number): Promise<void> {
+  return sendJson(`/finance/budget/tag-rules/${id}`, 'DELETE')
+}
+
+export function reapplyTagRules(): Promise<ReapplyResult> {
+  return sendJson('/finance/budget/tag-rules/apply', 'POST')
 }
