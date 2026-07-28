@@ -4,7 +4,7 @@ import type {
   MonthlySummary,
   MoneyGoal,
   PortfolioSummary,
-  StatementUploadResult,
+  StatementUploadOutcome,
   Transaction,
 } from './types'
 
@@ -48,9 +48,11 @@ export function getMonthlySummary(month: string): Promise<MonthlySummary> {
   return getJson(`/finance/budget/summary?month=${month}`)
 }
 
-export async function uploadStatement(file: File): Promise<StatementUploadResult> {
+export async function uploadStatements(files: File[]): Promise<StatementUploadOutcome[]> {
   const formData = new FormData()
-  formData.append('file', file)
+  for (const file of files) {
+    formData.append('files', file)
+  }
 
   const response = await fetch(`${resolveApiBaseUrl()}/finance/budget/statements`, {
     method: 'POST',
@@ -61,5 +63,5 @@ export async function uploadStatement(file: File): Promise<StatementUploadResult
     const body = await response.json().catch(() => null)
     throw new Error(body?.message ?? body?.detail ?? `Upload failed: ${response.status}`)
   }
-  return (await response.json()) as StatementUploadResult
+  return (await response.json()) as StatementUploadOutcome[]
 }

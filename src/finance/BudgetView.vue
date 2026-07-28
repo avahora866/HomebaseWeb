@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { getMonthlySummary, getTransactions, uploadStatement } from './api'
+import { getMonthlySummary, getTransactions, uploadStatements } from './api'
 import { money, money2, toLocalIsoDate } from './format'
-import type { MonthlySummary, Transaction } from './types'
+import type { MonthlySummary, StatementUploadOutcome, Transaction } from './types'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -14,8 +14,8 @@ const modalDay = ref<number | null>(null)
 
 const uploadOpen = ref(false)
 const uploadStage = ref<'idle' | 'selected' | 'uploading' | 'done'>('idle')
-const uploadFile = ref<File | null>(null)
-const uploadResultText = ref('')
+const uploadFiles = ref<File[]>([])
+const uploadOutcomes = ref<StatementUploadOutcome[]>([])
 const uploadError = ref<string | null>(null)
 
 const monthLabel = computed(() =>
@@ -117,7 +117,8 @@ function closeModal() {
 function openUpload() {
   uploadOpen.value = true
   uploadStage.value = 'idle'
-  uploadFile.value = null
+  uploadFiles.value = []
+  uploadOutcomes.value = []
   uploadError.value = null
 }
 
@@ -127,21 +128,28 @@ function closeUpload() {
 
 function onFile(e: Event) {
   const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) {
-    uploadFile.value = file
+  const files = target.files ? Array.from(target.files) : []
+  if (files.length) {
+    uploadFiles.value = [...uploadFiles.value, ...files]
     uploadStage.value = 'selected'
     uploadError.value = null
+  }
+  target.value = ''
+}
+
+function removeFile(index: number) {
+  uploadFiles.value = uploadFiles.value.filter((_, i) => i !== index)
+  if (uploadFiles.value.length === 0) {
+    uploadStage.value = 'idle'
   }
 }
 
 async function submitUpload() {
-  if (!uploadFile.value) return
+  if (!uploadFiles.value.length) return
   uploadStage.value = 'uploading'
   uploadError.value = null
   try {
-    const result = await uploadStatement(uploadFile.value)
-    uploadResultText.value = `Imported statement — ${result.added} new transaction(s) added from ${result.fileName}.`
+    uploadOutcomes.value = await uploadStatements(uploadFiles.value)
     uploadStage.value = 'done'
     await fetchData()
   } catch (e) {
@@ -150,9 +158,9 @@ async function submitUpload() {
   }
 }
 
-const fileSizeLabel = computed(() =>
-  uploadFile.value ? `${(uploadFile.value.size / 1024).toFixed(0)} KB` : '',
-)
+function fileSizeLabel(file: File): string {
+  return `${(file.size / 1024).toFixed(0)} KB`
+}
 </script>
 
 <template>
@@ -216,26 +224,38 @@ const fileSizeLabel = computed(() =>
 
     <div v-if="uploadOpen" class="dialog-backdrop" @click="closeUpload">
       <div class="dialog" @click.stop>
-        <div class="dialog-title">Upload bank statement</div>
+        <div class="dialog-title">Upload bank statements</div>
         <div class="dialog-body">
           <label v-if="uploadStage === 'idle'" class="upload-drop">
-            <input type="file" accept=".csv,.ofx,.qif,.pdf" style="display: none" @change="onFile" />
+            <input type="file" accept=".csv,.ofx,.qif,.pdf" multiple style="display: none" @change="onFile" />
             <svg width="28" height="28" viewBox="0 0 256 256" fill="currentColor"><path opacity="0.25" d="M224,152v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V152Z"/><path d="M243.31,90.63l-72-72a16,16,0,0,0-22.62,0L136,29.28V152a8,8,0,0,1-16,0V29.28L108.69,18.63a16,16,0,0,0-22.62,0l-72,72A16,16,0,0,0,25.37,116l16-16V208a24,24,0,0,0,24,24H190.63a24,24,0,0,0,24-24V100l16,16a16,16,0,0,0,11.31-27.37Z"/></svg>
-            <span class="upload-drop-title">Drag a statement here, or click to browse</span>
-            <span class="upload-drop-sub">CSV, OFX, QIF or PDF from your bank</span>
+            <span class="upload-drop-title">Drag statements here, or click to browse</span>
+            <span class="upload-drop-sub">CSV, OFX, QIF or PDF from your bank — select as many as you like</span>
           </label>
 
           <template v-if="uploadStage === 'selected'">
-            <div class="upload-file-row">
-              <span class="tag tag-neutral">{{ uploadFile?.name }}</span>
-              <span class="upload-file-size">{{ fileSizeLabel }}</span>
+            <div v-for="(file, i) in uploadFiles" :key="`${file.name}-${i}`" class="upload-file-row">
+              <span class="tag tag-neutral">{{ file.name }}</span>
+              <span class="upload-file-size">{{ fileSizeLabel(file) }}</span>
+              <button class="upload-remove" aria-label="Remove file" @click="removeFile(i)">×</button>
             </div>
+            <label class="upload-add-more">
+              <input type="file" accept=".csv,.ofx,.qif,.pdf" multiple style="display: none" @change="onFile" />
+              + Add more files
+            </label>
             <p class="upload-note">We'll match transactions against your existing entries and only add new ones.</p>
             <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
           </template>
 
-          <p v-if="uploadStage === 'uploading'" class="upload-note">Parsing statement…</p>
-          <p v-if="uploadStage === 'done'" class="upload-success">{{ uploadResultText }}</p>
+          <p v-if="uploadStage === 'uploading'" class="upload-note">Parsing {{ uploadFiles.length }} statement(s)…</p>
+
+          <template v-if="uploadStage === 'done'">
+            <div v-for="o in uploadOutcomes" :key="o.fileName" class="upload-outcome" :class="{ failed: !o.success }">
+              <span class="upload-outcome-name">{{ o.fileName }}</span>
+              <span v-if="o.success" class="upload-outcome-detail">{{ o.added }} added, {{ o.skipped }} skipped</span>
+              <span v-else class="upload-outcome-detail">{{ o.error }}</span>
+            </div>
+          </template>
         </div>
         <div class="dialog-actions">
           <button class="btn btn-ghost" @click="closeUpload">{{ uploadStage === 'done' ? 'Close' : 'Cancel' }}</button>
@@ -275,9 +295,18 @@ const fileSizeLabel = computed(() =>
 .upload-drop-sub { font-size: 12px; color: var(--color-neutral-500); }
 .upload-file-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
 .upload-file-size { font-size: 12px; color: var(--color-neutral-500); }
+.upload-remove { margin-left: auto; background: none; border: none; color: var(--color-neutral-500); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 var(--space-1); }
+.upload-remove:hover { color: var(--color-accent-2-700); }
+.upload-add-more { display: inline-block; font-size: 13px; color: var(--color-accent-700); cursor: pointer; margin-bottom: var(--space-3); }
+.upload-add-more:hover { text-decoration: underline; }
 .upload-note { font-size: 13px; color: var(--color-neutral-600); }
 .upload-success { font-size: 14px; color: var(--color-accent-700); }
 .upload-error { font-size: 13px; color: var(--color-accent-2-700); }
+.upload-outcome { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--color-neutral-300); font-size: 13px; }
+.upload-outcome:first-child { border-top: none; }
+.upload-outcome-name { color: var(--color-text); }
+.upload-outcome-detail { color: var(--color-accent-700); text-align: right; }
+.upload-outcome.failed .upload-outcome-detail { color: var(--color-accent-2-700); }
 .ret-pos { color: var(--color-accent-700); }
 .ret-neg { color: var(--color-accent-2-700); }
 </style>

@@ -41,11 +41,13 @@ export interface MonthlySummary {
   netFlow: number
 }
 
-export interface StatementUploadResult {
+export interface StatementUploadOutcome {
   fileName: string
-  bankDetected: string
+  success: boolean
+  bankDetected: string | null
   added: number
   skipped: number
+  error: string | null
 }
 
 export interface ManualBalances {
