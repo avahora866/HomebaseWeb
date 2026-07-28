@@ -47,3 +47,11 @@ export interface StatementUploadResult {
   added: number
   skipped: number
 }
+
+export interface ManualBalances {
+  cashIsaBalance: number
+  moneyboxLisaBalance: number
+  snoopBalance: number
+  savingsOneBalance: number
+  savingsTwoBalance: number
+}

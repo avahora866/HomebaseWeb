@@ -1,4 +1,6 @@
+import { resolveApiBaseUrl } from '../settings/apiEnvironment'
 import type {
+  ManualBalances,
   MonthlySummary,
   MoneyGoal,
   PortfolioSummary,
@@ -6,10 +8,8 @@ import type {
   Transaction,
 } from './types'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`)
+  const response = await fetch(`${resolveApiBaseUrl()}${path}`)
   if (!response.ok) {
     throw new Error(`Request to ${path} failed: ${response.status}`)
   }
@@ -24,6 +24,22 @@ export function getGoals(): Promise<MoneyGoal[]> {
   return getJson('/finance/investments/goals')
 }
 
+export function getManualBalances(): Promise<ManualBalances> {
+  return getJson('/finance/investments/balances')
+}
+
+export async function updateManualBalances(balances: ManualBalances): Promise<ManualBalances> {
+  const response = await fetch(`${resolveApiBaseUrl()}/finance/investments/balances`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(balances),
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to save balances: ${response.status}`)
+  }
+  return (await response.json()) as ManualBalances
+}
+
 export function getTransactions(from: string, to: string): Promise<Transaction[]> {
   return getJson(`/finance/budget/transactions?from=${from}&to=${to}`)
 }
@@ -36,7 +52,7 @@ export async function uploadStatement(file: File): Promise<StatementUploadResult
   const formData = new FormData()
   formData.append('file', file)
 
-  const response = await fetch(`${BASE_URL}/finance/budget/statements`, {
+  const response = await fetch(`${resolveApiBaseUrl()}/finance/budget/statements`, {
     method: 'POST',
     body: formData,
   })
