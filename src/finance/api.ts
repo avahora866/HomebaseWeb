@@ -5,6 +5,7 @@ import type {
   MoneyGoal,
   PortfolioSummary,
   ReapplyResult,
+  RuleImportOutcome,
   StatementUploadOutcome,
   TagRule,
   Transaction,
@@ -93,4 +94,16 @@ export function deleteTagRule(id: number): Promise<void> {
 
 export function reapplyTagRules(): Promise<ReapplyResult> {
   return sendJson('/finance/budget/tag-rules/apply', 'POST')
+}
+
+export async function importTagRuleScript(script: string): Promise<RuleImportOutcome[]> {
+  const response = await fetch(`${resolveApiBaseUrl()}/finance/budget/tag-rules/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: script,
+  })
+  if (!response.ok) {
+    throw new Error(`Import failed: ${response.status}`)
+  }
+  return (await response.json()) as RuleImportOutcome[]
 }

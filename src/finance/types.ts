@@ -60,13 +60,18 @@ export interface ManualBalances {
 
 export interface TagRule {
   id: number
-  pattern: string
-  tag: string
-  subscription: boolean
   priority: number
+  statement: string
 }
 
 export interface ReapplyResult {
-  checked: number
-  updated: number
+  rulesRun: number
+  rowsAffected: number
+}
+
+export interface RuleImportOutcome {
+  statement: string
+  success: boolean
+  ruleId: number | null
+  error: string | null
 }
