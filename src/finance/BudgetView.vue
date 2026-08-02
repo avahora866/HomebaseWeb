@@ -134,10 +134,11 @@ const calendarTiles = computed(() => {
     today: boolean
     income: number
     expense: number
+    hasSubscription: boolean
   }[] = []
 
   for (let i = 0; i < firstIdx; i++) {
-    tiles.push({ day: null, empty: true, today: false, income: 0, expense: 0 })
+    tiles.push({ day: null, empty: true, today: false, income: 0, expense: 0, hasSubscription: false })
   }
   for (let day = 1; day <= daysInMonth; day++) {
     const dayTx = txForDay(day)
@@ -150,6 +151,7 @@ const calendarTiles = computed(() => {
         today.getFullYear() === year && today.getMonth() === month && today.getDate() === day,
       income,
       expense,
+      hasSubscription: dayTx.some((t) => t.subscription),
     })
   }
   return tiles
@@ -364,7 +366,10 @@ async function exportCustomRange() {
         :class="{ empty: t.empty, today: t.today }"
         @click="t.day !== null && (modalDay = t.day)"
       >
-        <span class="cal-daynum">{{ t.day ?? '' }}</span>
+        <span class="cal-daynum">
+          {{ t.day ?? '' }}
+          <span v-if="t.hasSubscription" class="cal-dot-sub" aria-label="Subscription" title="Subscription"></span>
+        </span>
         <div class="cal-metrics">
           <span v-if="t.income > 0" class="in">+{{ money(t.income) }}</span>
           <span v-if="t.expense > 0" class="out">-{{ money(t.expense) }}</span>
@@ -522,7 +527,8 @@ async function exportCustomRange() {
 .cal-tile.empty { border-top: none; cursor: default; }
 .cal-tile.empty:hover { background: none; }
 .cal-tile.today { background: var(--color-accent-100); }
-.cal-daynum { font-size: 13px; color: var(--color-neutral-600); }
+.cal-daynum { font-size: 13px; color: var(--color-neutral-600); display: inline-flex; align-items: center; gap: 4px; }
+.cal-dot-sub { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #8b5cf6; flex-shrink: 0; }
 .cal-metrics { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; gap: 2px; }
 .cal-metrics .in { color: var(--color-accent-700); }
 .cal-metrics .out { color: var(--color-accent-2-700); }
