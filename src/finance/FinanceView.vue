@@ -3,14 +3,14 @@ import { ref } from 'vue'
 import InvestmentView from './InvestmentView.vue'
 import BudgetView from './BudgetView.vue'
 
-const tab = ref<'invest' | 'budget'>('invest')
+const tab = ref<'invest' | 'budget'>('budget')
 </script>
 
 <template>
   <div class="fin-wrap">
     <div class="fin-tabs">
-      <button class="fin-tab" :class="{ active: tab === 'invest' }" @click="tab = 'invest'">Investment</button>
       <button class="fin-tab" :class="{ active: tab === 'budget' }" @click="tab = 'budget'">Budget</button>
+      <button class="fin-tab" :class="{ active: tab === 'invest' }" @click="tab = 'invest'">Investment</button>
     </div>
 
     <InvestmentView v-if="tab === 'invest'" />
