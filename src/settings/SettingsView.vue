@@ -319,7 +319,7 @@ function truncate(text: string, max: number): string {
       <h2 class="section-title">Transaction Tag Rules</h2>
       <p class="section-hint">
         Each rule is a validated SQL statement —
-        <code>UPDATE transactions SET tags = '...' [, is_subscription = 0|1] WHERE &lt;condition&gt;</code>
+        <code>UPDATE transactions SET tags = '...' [, is_subscription = 0|1] [, note = '...'] WHERE &lt;condition&gt;</code>
         — where the condition combines AND / OR / NOT / parentheses over
         <code>description LIKE '...'</code>, <code>source = '...'</code>,
         <code>amount &gt;=|&lt;=|&gt;|&lt;|= &lt;number&gt;</code>, <code>tags = '...'</code> and

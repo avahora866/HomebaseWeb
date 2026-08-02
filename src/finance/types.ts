@@ -32,6 +32,7 @@ export interface Transaction {
   source: string
   tags: string
   subscription: boolean
+  note: string | null
 }
 
 export interface MonthlySummary {
