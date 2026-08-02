@@ -13,11 +13,16 @@ interface UploadItem {
   error: string | null
 }
 
+const NO_TAGS_VALUE = '__no_tags__'
+
 const cal = ref(new Date())
 const transactions = ref<Transaction[]>([])
 const summary = ref<MonthlySummary | null>(null)
 const loading = ref(false)
 const modalDay = ref<number | null>(null)
+
+const tagFilter = ref('')
+const subscriptionsOnly = ref(false)
 
 const uploadOpen = ref(false)
 const uploadStage = ref<'idle' | 'selected' | 'uploading' | 'done'>('idle')
@@ -68,11 +73,35 @@ function nextMonth() {
   modalDay.value = null
 }
 
+const availableTags = computed(() => {
+  const tags = new Set<string>()
+  for (const t of transactions.value) {
+    if (t.tags) tags.add(t.tags)
+  }
+  return [...tags].sort((a, b) => a.localeCompare(b))
+})
+
+const filtersActive = computed(() => tagFilter.value !== '' || subscriptionsOnly.value)
+
+function clearFilters() {
+  tagFilter.value = ''
+  subscriptionsOnly.value = false
+}
+
+const filteredTransactions = computed(() => {
+  return transactions.value.filter((t) => {
+    if (subscriptionsOnly.value && !t.subscription) return false
+    if (tagFilter.value === NO_TAGS_VALUE && t.tags) return false
+    if (tagFilter.value && tagFilter.value !== NO_TAGS_VALUE && t.tags !== tagFilter.value) return false
+    return true
+  })
+})
+
 function txForDay(day: number) {
   const year = cal.value.getFullYear()
   const month = cal.value.getMonth()
   const dateStr = toLocalIsoDate(new Date(year, month, day))
-  return transactions.value.filter((t) => t.date === dateStr)
+  return filteredTransactions.value.filter((t) => t.date === dateStr)
 }
 
 const calendarTiles = computed(() => {
@@ -201,6 +230,22 @@ function fileSizeLabel(file: File): string {
       </div>
     </div>
 
+    <div class="bud-filters">
+      <div class="field">
+        <label for="tag-filter">Tag</label>
+        <select id="tag-filter" class="input" v-model="tagFilter">
+          <option value="">All tags</option>
+          <option :value="NO_TAGS_VALUE">No tags</option>
+          <option v-for="t in availableTags" :key="t" :value="t">{{ t }}</option>
+        </select>
+      </div>
+      <label class="bud-filter-check">
+        <input type="checkbox" v-model="subscriptionsOnly" />
+        Subscriptions only
+      </label>
+      <button v-if="filtersActive" class="btn btn-ghost" @click="clearFilters">Clear filters</button>
+    </div>
+
     <div class="cal-grid">
       <div v-for="d in DAY_LABELS" :key="d" class="cal-daylabel">{{ d }}</div>
       <div
@@ -312,6 +357,9 @@ function fileSizeLabel(file: File): string {
 .bud-nav h2 { font-family: var(--font-heading); font-weight: 400; font-size: 22px; margin: 0; min-width: 200px; text-align: center; }
 .bud-summary { display: flex; gap: var(--space-5); font-size: 13px; }
 .bud-summary .lbl { color: var(--color-neutral-500); margin-right: var(--space-1); }
+.bud-filters { display: flex; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-5); }
+.bud-filters .field { width: 200px; }
+.bud-filter-check { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; padding-bottom: 8px; cursor: pointer; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-2); }
 .cal-daylabel { text-align: center; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-neutral-500); padding-bottom: var(--space-2); }
 .cal-tile { border-top: 1px solid var(--color-neutral-300); min-height: 92px; padding: var(--space-2); display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
