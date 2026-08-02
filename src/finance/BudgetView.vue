@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { getMonthlySummary, getTransactions, uploadStatement } from './api'
+import { getMonthlySummary, getTransactions, updateTransactionNote, uploadStatement } from './api'
 import { money, money2, toLocalIsoDate } from './format'
 import type { MonthlySummary, StatementUploadOutcome, Transaction } from './types'
 
@@ -182,12 +182,34 @@ const txDetailDate = computed(() => {
   })
 })
 
+const noteDraft = ref('')
+const noteSaving = ref(false)
+const noteError = ref<string | null>(null)
+
 function openTxDetail(t: Transaction) {
   selectedTx.value = t
+  noteDraft.value = t.note ?? ''
+  noteError.value = null
 }
 
 function closeTxDetail() {
   selectedTx.value = null
+}
+
+async function saveNote() {
+  if (!selectedTx.value) return
+  noteSaving.value = true
+  noteError.value = null
+  try {
+    const updated = await updateTransactionNote(selectedTx.value.id, noteDraft.value)
+    const idx = transactions.value.findIndex((t) => t.id === updated.id)
+    if (idx !== -1) transactions.value[idx] = updated
+    selectedTx.value = updated
+  } catch (e) {
+    noteError.value = e instanceof Error ? e.message : 'Failed to save note'
+  } finally {
+    noteSaving.value = false
+  }
 }
 
 function openUpload() {
@@ -441,6 +463,19 @@ async function exportCustomRange() {
                 <span class="tx-detail-label">Subscription</span>
                 <span>{{ selectedTx?.subscription ? 'Yes' : 'No' }}</span>
               </div>
+              <div class="tx-note">
+                <span class="tx-detail-label">Note</span>
+                <textarea
+                  class="input tx-note-input"
+                  v-model="noteDraft"
+                  rows="3"
+                  placeholder="Add a note…"
+                ></textarea>
+                <button class="btn btn-secondary" @click="saveNote" :disabled="noteSaving">
+                  {{ noteSaving ? 'Saving…' : 'Save note' }}
+                </button>
+                <p v-if="noteError" class="upload-error">{{ noteError }}</p>
+              </div>
             </div>
           </div>
         </transition>
@@ -564,6 +599,9 @@ async function exportCustomRange() {
 .tx-detail-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--color-neutral-300); }
 .tx-detail-row:first-of-type { border-top: none; }
 .tx-detail-label { color: var(--color-neutral-500); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.tx-note { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-neutral-300); margin-top: var(--space-1); }
+.tx-note-input { resize: vertical; font-family: inherit; }
+.tx-note button { align-self: flex-start; }
 .upload-drop { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; padding: var(--space-8) var(--space-4); border: 1px dashed var(--color-neutral-400); border-radius: var(--radius-md); color: var(--color-accent-700); cursor: pointer; }
 .upload-drop:hover { background: var(--color-accent-100); border-color: var(--color-accent-500); }
 .upload-drop-title { font-size: 14px; color: var(--color-text); }

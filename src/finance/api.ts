@@ -58,6 +58,10 @@ export function getMonthlySummary(month: string): Promise<MonthlySummary> {
   return getJson(`/finance/budget/summary?month=${month}`)
 }
 
+export function updateTransactionNote(id: number, note: string): Promise<Transaction> {
+  return sendJson(`/finance/budget/transactions/${id}/note`, 'PATCH', { note })
+}
+
 export async function uploadStatement(file: File): Promise<StatementUploadOutcome> {
   const formData = new FormData()
   formData.append('files', file)
