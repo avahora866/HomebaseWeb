@@ -355,6 +355,7 @@ async function exportCustomRange() {
         Subscriptions only
       </label>
       <button v-if="filtersActive" class="btn btn-ghost" @click="clearFilters">Clear filters</button>
+      <span class="bud-tx-count">{{ filteredTransactions.length }} transaction{{ filteredTransactions.length === 1 ? '' : 's' }}</span>
     </div>
 
     <div class="cal-grid">
@@ -520,6 +521,7 @@ async function exportCustomRange() {
 .bud-filters { display: flex; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-5); }
 .bud-filters .field { width: 200px; }
 .bud-filter-check { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; padding-bottom: 8px; cursor: pointer; }
+.bud-tx-count { margin-left: auto; font-size: 13px; color: var(--color-neutral-500); padding-bottom: 8px; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-2); }
 .cal-daylabel { text-align: center; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-neutral-500); padding-bottom: var(--space-2); }
 .cal-tile { border-top: 1px solid var(--color-neutral-300); min-height: 92px; padding: var(--space-2); display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
