@@ -223,6 +223,7 @@ watch(selectedTx, (t) => {
   tagDraft.value = t?.tags ?? ''
   subscriptionDraft.value = t?.subscription ?? false
   tagSaveError.value = null
+  ruleModalOpen.value = false
 })
 
 const tagEditDirty = computed(() => {
@@ -554,7 +555,7 @@ async function exportCustomRange() {
     </div>
 
     <div v-if="modalOpen" class="dialog-backdrop" @click="closeModal">
-      <div class="dialog dialog-with-panel" :class="{ 'panel-open': txDetailOpen }" @click.stop>
+      <div class="dialog dialog-with-panel" :class="{ 'panel-open': txDetailOpen, 'rules-open': ruleModalOpen }" @click.stop>
         <div class="dialog-main">
           <div class="dialog-title">{{ modalDate }}</div>
           <div class="dialog-body">
@@ -645,86 +646,86 @@ async function exportCustomRange() {
             </div>
           </div>
         </transition>
-      </div>
-    </div>
 
-    <div v-if="ruleModalOpen" class="dialog-backdrop" @click="closeRuleModal">
-      <div class="dialog dialog-rules" @click.stop>
-        <div class="dialog-title">Tag rules</div>
-        <div class="dialog-body">
-          <div class="field rule-search">
-            <label for="rule-search">Search by tag or keyword</label>
-            <input
-              id="rule-search"
-              class="input"
-              v-model="ruleSearch"
-              placeholder="e.g. Netflix, Entertainment"
-            />
+        <transition name="tx-panel-slide">
+          <div v-if="ruleModalOpen" class="rules-panel">
+            <div class="rules-panel-header">
+              <span>Tag rules</span>
+              <button class="tx-panel-close" aria-label="Close tag rules" @click="closeRuleModal">×</button>
+            </div>
+            <div class="rules-panel-body">
+              <div class="field rule-search">
+                <label for="rule-search">Search by tag or keyword</label>
+                <input
+                  id="rule-search"
+                  class="input"
+                  v-model="ruleSearch"
+                  placeholder="e.g. Netflix, Entertainment"
+                />
+              </div>
+
+              <p v-if="rulesLoading" class="upload-note">Loading rules…</p>
+              <p v-else-if="filteredRules.length === 0" class="upload-note" style="font-style: italic">
+                No matching rules. Create one below.
+              </p>
+
+              <div v-for="rule in filteredRules" :key="rule.id" class="rule-row">
+                <template v-if="editingRuleId === rule.id">
+                  <div class="field">
+                    <label>Priority</label>
+                    <input class="input" type="number" v-model.number="ruleDraftPriority" />
+                  </div>
+                  <div class="field">
+                    <label>Statement</label>
+                    <textarea class="input rule-textarea" v-model="ruleDraftStatement" rows="3"></textarea>
+                  </div>
+                  <div class="rule-actions">
+                    <button class="btn btn-primary" @click="saveRuleEdit(rule.id)" :disabled="ruleSaving">
+                      {{ ruleSaving ? 'Saving…' : 'Save' }}
+                    </button>
+                    <button class="btn btn-ghost" @click="cancelEditRule">Cancel</button>
+                    <button class="btn btn-ghost rule-delete" @click="deleteRule(rule.id)" :disabled="ruleSaving">
+                      Delete
+                    </button>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="rule-view" @click="startEditRule(rule)">
+                    <span class="rule-priority">#{{ rule.priority }}</span>
+                    <code class="rule-statement">{{ rule.statement }}</code>
+                  </div>
+                </template>
+              </div>
+
+              <div class="rule-new">
+                <button v-if="!newRuleOpen" class="btn btn-secondary" @click="startNewRule">+ New tag rule</button>
+                <template v-else>
+                  <div class="field">
+                    <label>Priority</label>
+                    <input class="input" type="number" v-model.number="newRulePriority" />
+                  </div>
+                  <div class="field">
+                    <label>Statement</label>
+                    <textarea class="input rule-textarea" v-model="newRuleStatement" rows="3"></textarea>
+                  </div>
+                  <div class="rule-actions">
+                    <button class="btn btn-primary" @click="createNewRule" :disabled="ruleSaving">
+                      {{ ruleSaving ? 'Creating…' : 'Create' }}
+                    </button>
+                    <button class="btn btn-ghost" @click="cancelNewRule">Cancel</button>
+                  </div>
+                </template>
+              </div>
+
+              <p v-if="ruleSaveError" class="upload-error">{{ ruleSaveError }}</p>
+              <p v-if="rulesError" class="upload-error">{{ rulesError }}</p>
+              <p v-if="reapplying" class="upload-note">Reapplying rules…</p>
+              <p v-else-if="reapplyResult" class="upload-note">
+                Applied {{ reapplyResult.rulesRun }} rule(s), {{ reapplyResult.rowsAffected }} row update(s).
+              </p>
+            </div>
           </div>
-
-          <p v-if="rulesLoading" class="upload-note">Loading rules…</p>
-          <p v-else-if="filteredRules.length === 0" class="upload-note" style="font-style: italic">
-            No matching rules. Create one below.
-          </p>
-
-          <div v-for="rule in filteredRules" :key="rule.id" class="rule-row">
-            <template v-if="editingRuleId === rule.id">
-              <div class="field">
-                <label>Priority</label>
-                <input class="input" type="number" v-model.number="ruleDraftPriority" />
-              </div>
-              <div class="field">
-                <label>Statement</label>
-                <textarea class="input rule-textarea" v-model="ruleDraftStatement" rows="3"></textarea>
-              </div>
-              <div class="rule-actions">
-                <button class="btn btn-primary" @click="saveRuleEdit(rule.id)" :disabled="ruleSaving">
-                  {{ ruleSaving ? 'Saving…' : 'Save' }}
-                </button>
-                <button class="btn btn-ghost" @click="cancelEditRule">Cancel</button>
-                <button class="btn btn-ghost rule-delete" @click="deleteRule(rule.id)" :disabled="ruleSaving">
-                  Delete
-                </button>
-              </div>
-            </template>
-            <template v-else>
-              <div class="rule-view" @click="startEditRule(rule)">
-                <span class="rule-priority">#{{ rule.priority }}</span>
-                <code class="rule-statement">{{ rule.statement }}</code>
-              </div>
-            </template>
-          </div>
-
-          <div class="rule-new">
-            <button v-if="!newRuleOpen" class="btn btn-secondary" @click="startNewRule">+ New tag rule</button>
-            <template v-else>
-              <div class="field">
-                <label>Priority</label>
-                <input class="input" type="number" v-model.number="newRulePriority" />
-              </div>
-              <div class="field">
-                <label>Statement</label>
-                <textarea class="input rule-textarea" v-model="newRuleStatement" rows="3"></textarea>
-              </div>
-              <div class="rule-actions">
-                <button class="btn btn-primary" @click="createNewRule" :disabled="ruleSaving">
-                  {{ ruleSaving ? 'Creating…' : 'Create' }}
-                </button>
-                <button class="btn btn-ghost" @click="cancelNewRule">Cancel</button>
-              </div>
-            </template>
-          </div>
-
-          <p v-if="ruleSaveError" class="upload-error">{{ ruleSaveError }}</p>
-          <p v-if="rulesError" class="upload-error">{{ rulesError }}</p>
-          <p v-if="reapplying" class="upload-note">Reapplying rules…</p>
-          <p v-else-if="reapplyResult" class="upload-note">
-            Applied {{ reapplyResult.rulesRun }} rule(s), {{ reapplyResult.rowsAffected }} row update(s).
-          </p>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-ghost" @click="closeRuleModal">Close</button>
-        </div>
+        </transition>
       </div>
     </div>
 
@@ -826,6 +827,7 @@ async function exportCustomRange() {
 
 .dialog-with-panel { flex-direction: row; align-items: stretch; gap: 0; overflow: hidden; width: min(480px, 100%); transition: width 0.22s ease; }
 .dialog-with-panel.panel-open { width: min(800px, 100%); }
+.dialog-with-panel.rules-open { width: min(1160px, 100%); }
 .dialog-main { display: flex; flex-direction: column; gap: var(--space-3); flex: 1 1 auto; min-width: 0; }
 .dialog-body { overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent; }
 .dialog-body::-webkit-scrollbar { width: 6px; }
@@ -848,7 +850,9 @@ async function exportCustomRange() {
 .tx-sub-toggle { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: 13px; }
 .tx-tag-actions { display: flex; align-items: center; gap: var(--space-3); padding-top: var(--space-3); }
 .tx-rule-link { padding-top: var(--space-2); }
-.dialog-rules { width: min(560px, 100%); }
+.rules-panel { flex: 0 0 340px; width: 340px; margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+.rules-panel-header { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 16px; }
+.rules-panel-body { display: flex; flex-direction: column; gap: 0; overflow-y: auto; }
 .rule-search { margin-bottom: var(--space-4); }
 .rule-row { padding: var(--space-3) 0; border-top: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-2); }
 .rule-row:first-of-type { border-top: none; }
