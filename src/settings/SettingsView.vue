@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   createTagRule,
   deleteTagRule,
@@ -101,6 +101,44 @@ async function loadRules() {
 }
 
 onMounted(loadRules)
+
+interface RuleGroup {
+  tag: string | null
+  rules: TagRule[]
+}
+
+function extractTag(statement: string): string | null {
+  const setClauseMatch = statement.match(/\bSET\b([\s\S]*?)\bWHERE\b/i)
+  const setClause = setClauseMatch?.[1] ?? statement
+  const tagMatch = setClause.match(/\btags\s*=\s*'([^']*)'/i)
+  return tagMatch?.[1] ?? null
+}
+
+const groupedRules = computed<RuleGroup[]>(() => {
+  const byTag = new Map<string, TagRule[]>()
+  const ungrouped: TagRule[] = []
+
+  for (const rule of rules.value) {
+    const tag = extractTag(rule.statement)
+    if (tag === null) {
+      ungrouped.push(rule)
+      continue
+    }
+    const list = byTag.get(tag)
+    if (list) list.push(rule)
+    else byTag.set(tag, [rule])
+  }
+
+  const groups: RuleGroup[] = [...byTag.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([tag, groupRules]) => ({ tag, rules: groupRules.sort((a, b) => a.priority - b.priority) }))
+
+  if (ungrouped.length) {
+    groups.push({ tag: null, rules: ungrouped.sort((a, b) => a.priority - b.priority) })
+  }
+
+  return groups
+})
 
 async function saveRule(rule: TagRule) {
   rowSaving[rule.id] = true
@@ -297,21 +335,28 @@ function truncate(text: string, max: number): string {
       <template v-else>
         <p v-if="!rules.length" class="section-hint">No rules yet — add one below.</p>
 
-        <div v-for="rule in rules" :key="rule.id" class="rule-card">
-          <textarea class="input rule-textarea" v-model="rule.statement" rows="2"></textarea>
-          <div class="rule-card-footer">
-            <label class="rule-priority-field">
-              Priority
-              <input class="input rule-priority" type="number" v-model.number="rule.priority" />
-            </label>
-            <div class="rules-actions">
-              <button class="btn btn-secondary" @click="saveRule(rule)" :disabled="rowSaving[rule.id]">
-                {{ rowSaving[rule.id] ? 'Saving…' : 'Save' }}
-              </button>
-              <button class="btn btn-ghost" @click="removeRule(rule.id)">Delete</button>
+        <div v-for="group in groupedRules" :key="group.tag ?? '__ungrouped'" class="rule-group">
+          <h3 class="rule-group-title">
+            {{ group.tag ?? 'Other' }}
+            <span class="rule-group-count">{{ group.rules.length }}</span>
+          </h3>
+
+          <div v-for="rule in group.rules" :key="rule.id" class="rule-card">
+            <textarea class="input rule-textarea" v-model="rule.statement" rows="2"></textarea>
+            <div class="rule-card-footer">
+              <label class="rule-priority-field">
+                Priority
+                <input class="input rule-priority" type="number" v-model.number="rule.priority" />
+              </label>
+              <div class="rules-actions">
+                <button class="btn btn-secondary" @click="saveRule(rule)" :disabled="rowSaving[rule.id]">
+                  {{ rowSaving[rule.id] ? 'Saving…' : 'Save' }}
+                </button>
+                <button class="btn btn-ghost" @click="removeRule(rule.id)">Delete</button>
+              </div>
             </div>
+            <p v-if="rowErrors[rule.id]" class="error-text">{{ rowErrors[rule.id] }}</p>
           </div>
-          <p v-if="rowErrors[rule.id]" class="error-text">{{ rowErrors[rule.id] }}</p>
         </div>
 
         <div class="rule-card rule-new">
@@ -396,6 +441,9 @@ function truncate(text: string, max: number): string {
 
 .rules-section { max-width: 720px; }
 .rules-section code { font-family: monospace; font-size: 12px; background: var(--color-surface); padding: 1px 5px; border-radius: var(--radius-sm); }
+.rule-group { margin-bottom: var(--space-5); }
+.rule-group-title { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-heading); font-weight: 400; font-size: 15px; margin: 0 0 var(--space-2); text-transform: capitalize; }
+.rule-group-count { font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-500); background: var(--color-surface); border-radius: 999px; padding: 1px 8px; }
 .rule-card { padding: var(--space-3); background: var(--color-surface); border-radius: var(--radius-md); margin-bottom: var(--space-3); }
 .rule-textarea { font-family: monospace; font-size: 12.5px; resize: vertical; }
 .rule-card-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); }
