@@ -6,9 +6,6 @@ const emit = defineEmits<{ navigate: [view: 'finance' | 'settings'] }>()
 <template>
   <div class="app-nav">
     <span class="brand">Homebase</span>
-    <button class="app-nav-link" disabled title="Not part of this redesign">Tasks</button>
-    <button class="app-nav-link" disabled title="Not part of this redesign">Audit</button>
-    <button class="app-nav-link" disabled title="Not part of this redesign">Workout</button>
     <button class="app-nav-link" :class="{ active: active === 'finance' }" @click="emit('navigate', 'finance')">
       Finance
     </button>
