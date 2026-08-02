@@ -58,6 +58,10 @@ export function getMonthlySummary(month: string): Promise<MonthlySummary> {
   return getJson(`/finance/budget/summary?month=${month}`)
 }
 
+export function updateTransactionNote(id: number, note: string): Promise<Transaction> {
+  return sendJson(`/finance/budget/transactions/${id}/note`, 'PATCH', { note })
+}
+
 export function updateTransactionTags(
   id: number,
   tags: string,
