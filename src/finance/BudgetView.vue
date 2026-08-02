@@ -65,6 +65,7 @@ function prevMonth() {
   d.setMonth(d.getMonth() - 1)
   cal.value = d
   modalDay.value = null
+  selectedTx.value = null
 }
 
 function nextMonth() {
@@ -72,6 +73,7 @@ function nextMonth() {
   d.setMonth(d.getMonth() + 1)
   cal.value = d
   modalDay.value = null
+  selectedTx.value = null
 }
 
 const availableTags = computed(() => {
@@ -149,6 +151,7 @@ const modalDate = computed(() => {
 
 function closeModal() {
   modalDay.value = null
+  selectedTx.value = null
 }
 
 const txDetailOpen = computed(() => selectedTx.value !== null)
@@ -285,65 +288,71 @@ function fileSizeLabel(file: File): string {
     </div>
 
     <div v-if="modalOpen" class="dialog-backdrop" @click="closeModal">
-      <div class="dialog" @click.stop>
-        <div class="dialog-title">{{ modalDate }}</div>
-        <div class="dialog-body">
-          <p v-if="modalTx.length === 0" style="font-style: italic; color: var(--color-neutral-500)">
-            No transactions recorded for this day.
-          </p>
-          <div
-            v-for="m in modalTx"
-            :key="m.id"
-            class="tx-row tx-row-clickable"
-            @click="openTxDetail(m)"
-          >
-            <div>
-              <div class="tx-desc">{{ m.description }}</div>
-              <div class="tx-meta">
-                {{ m.source }}
-                <span v-if="m.tags" class="tag tag-neutral tx-tag">{{ m.tags }}</span>
-                <span v-if="m.subscription" class="tag tag-neutral tx-tag">Subscription</span>
+      <div class="dialog dialog-with-panel" :class="{ 'panel-open': txDetailOpen }" @click.stop>
+        <div class="dialog-main">
+          <div class="dialog-title">{{ modalDate }}</div>
+          <div class="dialog-body">
+            <p v-if="modalTx.length === 0" style="font-style: italic; color: var(--color-neutral-500)">
+              No transactions recorded for this day.
+            </p>
+            <div
+              v-for="m in modalTx"
+              :key="m.id"
+              class="tx-row tx-row-clickable"
+              :class="{ active: selectedTx?.id === m.id }"
+              @click="openTxDetail(m)"
+            >
+              <div>
+                <div class="tx-desc">{{ m.description }}</div>
+                <div class="tx-meta">
+                  {{ m.source }}
+                  <span v-if="m.tags" class="tag tag-neutral tx-tag">{{ m.tags }}</span>
+                  <span v-if="m.subscription" class="tag tag-neutral tx-tag">Subscription</span>
+                </div>
+              </div>
+              <span :class="m.amount >= 0 ? 'ret-pos' : 'ret-neg'">
+                {{ m.amount > 0 ? '+' : '' }}{{ money2(m.amount) }}
+              </span>
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" @click="closeModal">Close</button>
+          </div>
+        </div>
+
+        <transition name="tx-panel-slide">
+          <div v-if="txDetailOpen" class="tx-panel">
+            <div class="tx-panel-header">
+              <span>Transaction details</span>
+              <button class="tx-panel-close" aria-label="Close details" @click="closeTxDetail">×</button>
+            </div>
+            <div class="tx-panel-body">
+              <div class="tx-desc" style="font-size: 16px; margin-bottom: var(--space-2)">
+                {{ selectedTx?.description }}
+              </div>
+              <div class="tx-detail-amount" :class="(selectedTx?.amount ?? 0) >= 0 ? 'ret-pos' : 'ret-neg'">
+                {{ (selectedTx?.amount ?? 0) > 0 ? '+' : '' }}{{ money2(selectedTx?.amount ?? 0) }}
+              </div>
+              <div class="tx-detail-row">
+                <span class="tx-detail-label">Date</span>
+                <span>{{ txDetailDate }}</span>
+              </div>
+              <div class="tx-detail-row">
+                <span class="tx-detail-label">Source</span>
+                <span>{{ selectedTx?.source }}</span>
+              </div>
+              <div class="tx-detail-row">
+                <span class="tx-detail-label">Tag</span>
+                <span v-if="selectedTx?.tags" class="tag tag-neutral tx-tag">{{ selectedTx.tags }}</span>
+                <span v-else style="color: var(--color-neutral-500)">None</span>
+              </div>
+              <div class="tx-detail-row">
+                <span class="tx-detail-label">Subscription</span>
+                <span>{{ selectedTx?.subscription ? 'Yes' : 'No' }}</span>
               </div>
             </div>
-            <span :class="m.amount >= 0 ? 'ret-pos' : 'ret-neg'">
-              {{ m.amount > 0 ? '+' : '' }}{{ money2(m.amount) }}
-            </span>
           </div>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-secondary" @click="closeModal">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="txDetailOpen" class="dialog-backdrop" @click="closeTxDetail">
-      <div class="dialog" @click.stop>
-        <div class="dialog-title">{{ selectedTx?.description }}</div>
-        <div class="dialog-body">
-          <div class="tx-detail-amount" :class="(selectedTx?.amount ?? 0) >= 0 ? 'ret-pos' : 'ret-neg'">
-            {{ (selectedTx?.amount ?? 0) > 0 ? '+' : '' }}{{ money2(selectedTx?.amount ?? 0) }}
-          </div>
-          <div class="tx-detail-row">
-            <span class="tx-detail-label">Date</span>
-            <span>{{ txDetailDate }}</span>
-          </div>
-          <div class="tx-detail-row">
-            <span class="tx-detail-label">Source</span>
-            <span>{{ selectedTx?.source }}</span>
-          </div>
-          <div class="tx-detail-row">
-            <span class="tx-detail-label">Tag</span>
-            <span v-if="selectedTx?.tags" class="tag tag-neutral tx-tag">{{ selectedTx.tags }}</span>
-            <span v-else style="color: var(--color-neutral-500)">None</span>
-          </div>
-          <div class="tx-detail-row">
-            <span class="tx-detail-label">Subscription</span>
-            <span>{{ selectedTx?.subscription ? 'Yes' : 'No' }}</span>
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-secondary" @click="closeTxDetail">Close</button>
-        </div>
+        </transition>
       </div>
     </div>
 
@@ -432,10 +441,22 @@ function fileSizeLabel(file: File): string {
 .tx-row:first-child { border-top: none; }
 .tx-row-clickable { cursor: pointer; margin: 0 calc(var(--space-2) * -1); padding-left: var(--space-2); padding-right: var(--space-2); border-radius: var(--radius-md); }
 .tx-row-clickable:hover { background: var(--color-accent-100); }
+.tx-row-clickable.active { background: var(--color-accent-100); }
 .tx-desc { font-size: 14px; }
 .tx-meta { display: flex; align-items: center; gap: var(--space-2); font-size: 11px; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 .tx-tag { text-transform: none; letter-spacing: 0.02em; }
-.tx-detail-amount { font-size: 24px; margin-bottom: var(--space-4); }
+
+.dialog-with-panel { flex-direction: row; align-items: stretch; gap: 0; overflow: hidden; width: min(440px, 100%); transition: width 0.22s ease; }
+.dialog-with-panel.panel-open { width: min(760px, 100%); }
+.dialog-main { display: flex; flex-direction: column; gap: var(--space-3); flex: 1 1 auto; min-width: 0; }
+.tx-panel { flex: 0 0 280px; width: 280px; margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-3); }
+.tx-panel-header { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 16px; }
+.tx-panel-close { background: none; border: none; font-size: 20px; line-height: 1; color: var(--color-neutral-500); cursor: pointer; padding: 0 var(--space-1); }
+.tx-panel-close:hover { color: var(--color-text); }
+.tx-panel-body { display: flex; flex-direction: column; gap: 0; }
+.tx-panel-slide-enter-active, .tx-panel-slide-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.tx-panel-slide-enter-from, .tx-panel-slide-leave-to { opacity: 0; transform: translateX(12px); }
+.tx-detail-amount { font-size: 24px; margin-bottom: var(--space-2); }
 .tx-detail-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--color-neutral-300); }
 .tx-detail-row:first-of-type { border-top: none; }
 .tx-detail-label { color: var(--color-neutral-500); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
