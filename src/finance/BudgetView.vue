@@ -20,6 +20,7 @@ const transactions = ref<Transaction[]>([])
 const summary = ref<MonthlySummary | null>(null)
 const loading = ref(false)
 const modalDay = ref<number | null>(null)
+const selectedTx = ref<Transaction | null>(null)
 
 const tagFilter = ref('')
 const subscriptionsOnly = ref(false)
@@ -150,6 +151,26 @@ function closeModal() {
   modalDay.value = null
 }
 
+const txDetailOpen = computed(() => selectedTx.value !== null)
+const txDetailDate = computed(() => {
+  if (!selectedTx.value) return ''
+  const parts = selectedTx.value.date.split('-').map(Number)
+  return new Date(parts[0] ?? 0, (parts[1] ?? 1) - 1, parts[2] ?? 1).toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+})
+
+function openTxDetail(t: Transaction) {
+  selectedTx.value = t
+}
+
+function closeTxDetail() {
+  selectedTx.value = null
+}
+
 function openUpload() {
   uploadOpen.value = true
   uploadStage.value = 'idle'
@@ -270,7 +291,12 @@ function fileSizeLabel(file: File): string {
           <p v-if="modalTx.length === 0" style="font-style: italic; color: var(--color-neutral-500)">
             No transactions recorded for this day.
           </p>
-          <div v-for="m in modalTx" :key="m.id" class="tx-row">
+          <div
+            v-for="m in modalTx"
+            :key="m.id"
+            class="tx-row tx-row-clickable"
+            @click="openTxDetail(m)"
+          >
             <div>
               <div class="tx-desc">{{ m.description }}</div>
               <div class="tx-meta">
@@ -286,6 +312,37 @@ function fileSizeLabel(file: File): string {
         </div>
         <div class="dialog-actions">
           <button class="btn btn-secondary" @click="closeModal">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="txDetailOpen" class="dialog-backdrop" @click="closeTxDetail">
+      <div class="dialog" @click.stop>
+        <div class="dialog-title">{{ selectedTx?.description }}</div>
+        <div class="dialog-body">
+          <div class="tx-detail-amount" :class="(selectedTx?.amount ?? 0) >= 0 ? 'ret-pos' : 'ret-neg'">
+            {{ (selectedTx?.amount ?? 0) > 0 ? '+' : '' }}{{ money2(selectedTx?.amount ?? 0) }}
+          </div>
+          <div class="tx-detail-row">
+            <span class="tx-detail-label">Date</span>
+            <span>{{ txDetailDate }}</span>
+          </div>
+          <div class="tx-detail-row">
+            <span class="tx-detail-label">Source</span>
+            <span>{{ selectedTx?.source }}</span>
+          </div>
+          <div class="tx-detail-row">
+            <span class="tx-detail-label">Tag</span>
+            <span v-if="selectedTx?.tags" class="tag tag-neutral tx-tag">{{ selectedTx.tags }}</span>
+            <span v-else style="color: var(--color-neutral-500)">None</span>
+          </div>
+          <div class="tx-detail-row">
+            <span class="tx-detail-label">Subscription</span>
+            <span>{{ selectedTx?.subscription ? 'Yes' : 'No' }}</span>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" @click="closeTxDetail">Close</button>
         </div>
       </div>
     </div>
@@ -373,9 +430,15 @@ function fileSizeLabel(file: File): string {
 .cal-metrics .out { color: var(--color-accent-2-700); }
 .tx-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--color-neutral-300); }
 .tx-row:first-child { border-top: none; }
+.tx-row-clickable { cursor: pointer; margin: 0 calc(var(--space-2) * -1); padding-left: var(--space-2); padding-right: var(--space-2); border-radius: var(--radius-md); }
+.tx-row-clickable:hover { background: var(--color-accent-100); }
 .tx-desc { font-size: 14px; }
 .tx-meta { display: flex; align-items: center; gap: var(--space-2); font-size: 11px; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 .tx-tag { text-transform: none; letter-spacing: 0.02em; }
+.tx-detail-amount { font-size: 24px; margin-bottom: var(--space-4); }
+.tx-detail-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--color-neutral-300); }
+.tx-detail-row:first-of-type { border-top: none; }
+.tx-detail-label { color: var(--color-neutral-500); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
 .upload-drop { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; padding: var(--space-8) var(--space-4); border: 1px dashed var(--color-neutral-400); border-radius: var(--radius-md); color: var(--color-accent-700); cursor: pointer; }
 .upload-drop:hover { background: var(--color-accent-100); border-color: var(--color-accent-500); }
 .upload-drop-title { font-size: 14px; color: var(--color-text); }
