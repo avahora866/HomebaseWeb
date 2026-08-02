@@ -8,6 +8,7 @@ import {
   getTransactions,
   reapplyTagRules,
   updateTagRule,
+  updateTransactionNote,
   updateTransactionTags,
   uploadStatement,
 } from './api'
@@ -39,6 +40,10 @@ const tagDraft = ref('')
 const subscriptionDraft = ref(false)
 const savingTag = ref(false)
 const tagSaveError = ref<string | null>(null)
+
+const noteDraft = ref('')
+const noteSaving = ref(false)
+const noteError = ref<string | null>(null)
 
 const tagRules = ref<TagRule[]>([])
 const ruleModalOpen = ref(false)
@@ -167,10 +172,11 @@ const calendarTiles = computed(() => {
     today: boolean
     income: number
     expense: number
+    hasSubscription: boolean
   }[] = []
 
   for (let i = 0; i < firstIdx; i++) {
-    tiles.push({ day: null, empty: true, today: false, income: 0, expense: 0 })
+    tiles.push({ day: null, empty: true, today: false, income: 0, expense: 0, hasSubscription: false })
   }
   for (let day = 1; day <= daysInMonth; day++) {
     const dayTx = txForDay(day)
@@ -183,6 +189,7 @@ const calendarTiles = computed(() => {
         today.getFullYear() === year && today.getMonth() === month && today.getDate() === day,
       income,
       expense,
+      hasSubscription: dayTx.some((t) => t.subscription),
     })
   }
   return tiles
@@ -215,6 +222,8 @@ const txDetailDate = computed(() => {
 
 function openTxDetail(t: Transaction) {
   selectedTx.value = t
+  noteDraft.value = t.note ?? ''
+  noteError.value = null
 }
 
 function closeTxDetail() {
@@ -245,6 +254,22 @@ async function saveTagEdit() {
     tagSaveError.value = e instanceof Error ? e.message : 'Failed to save tag'
   } finally {
     savingTag.value = false
+  }
+}
+
+async function saveNote() {
+  if (!selectedTx.value) return
+  noteSaving.value = true
+  noteError.value = null
+  try {
+    const updated = await updateTransactionNote(selectedTx.value.id, noteDraft.value)
+    const idx = transactions.value.findIndex((t) => t.id === updated.id)
+    if (idx !== -1) transactions.value[idx] = updated
+    selectedTx.value = updated
+  } catch (e) {
+    noteError.value = e instanceof Error ? e.message : 'Failed to save note'
+  } finally {
+    noteSaving.value = false
   }
 }
 
@@ -549,6 +574,7 @@ async function exportCustomRange() {
         Subscriptions only
       </label>
       <button v-if="filtersActive" class="btn btn-ghost" @click="clearFilters">Clear filters</button>
+      <span class="bud-tx-count">{{ filteredTransactions.length }} transaction{{ filteredTransactions.length === 1 ? '' : 's' }}</span>
     </div>
 
     <div class="cal-grid">
@@ -560,7 +586,10 @@ async function exportCustomRange() {
         :class="{ empty: t.empty, today: t.today }"
         @click="t.day !== null && (modalDay = t.day)"
       >
-        <span class="cal-daynum">{{ t.day ?? '' }}</span>
+        <span class="cal-daynum">
+          {{ t.day ?? '' }}
+          <span v-if="t.hasSubscription" class="cal-dot-sub" aria-label="Subscription" title="Subscription"></span>
+        </span>
         <div class="cal-metrics">
           <span v-if="t.income > 0" class="in">+{{ money(t.income) }}</span>
           <span v-if="t.expense > 0" class="out">-{{ money(t.expense) }}</span>
@@ -656,6 +685,19 @@ async function exportCustomRange() {
               </div>
               <div class="tx-rule-link">
                 <button class="btn btn-ghost" @click="openRuleModal">Manage matching tag rule →</button>
+              </div>
+              <div class="tx-note">
+                <span class="tx-detail-label">Note</span>
+                <textarea
+                  class="input tx-note-input"
+                  v-model="noteDraft"
+                  rows="3"
+                  placeholder="Add a note…"
+                ></textarea>
+                <button class="btn btn-secondary" @click="saveNote" :disabled="noteSaving">
+                  {{ noteSaving ? 'Saving…' : 'Save note' }}
+                </button>
+                <p v-if="noteError" class="upload-error">{{ noteError }}</p>
               </div>
             </div>
           </div>
@@ -856,6 +898,7 @@ async function exportCustomRange() {
 .bud-filters { display: flex; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-5); }
 .bud-filters .field { width: 200px; }
 .bud-filter-check { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; padding-bottom: 8px; cursor: pointer; }
+.bud-tx-count { margin-left: auto; font-size: 13px; color: var(--color-neutral-500); padding-bottom: 8px; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-2); }
 .cal-daylabel { text-align: center; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-neutral-500); padding-bottom: var(--space-2); }
 .cal-tile { border-top: 1px solid var(--color-neutral-300); min-height: 92px; padding: var(--space-2); display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
@@ -863,7 +906,8 @@ async function exportCustomRange() {
 .cal-tile.empty { border-top: none; cursor: default; }
 .cal-tile.empty:hover { background: none; }
 .cal-tile.today { background: var(--color-accent-100); }
-.cal-daynum { font-size: 13px; color: var(--color-neutral-600); }
+.cal-daynum { font-size: 13px; color: var(--color-neutral-600); display: inline-flex; align-items: center; gap: 4px; }
+.cal-dot-sub { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #8b5cf6; flex-shrink: 0; }
 .cal-metrics { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; gap: 2px; }
 .cal-metrics .in { color: var(--color-accent-700); }
 .cal-metrics .out { color: var(--color-accent-2-700); }
@@ -902,6 +946,9 @@ async function exportCustomRange() {
 .tx-sub-toggle { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: 13px; }
 .tx-tag-actions { display: flex; align-items: center; gap: var(--space-3); padding-top: var(--space-3); }
 .tx-rule-link { padding-top: var(--space-2); }
+.tx-note { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-neutral-300); margin-top: var(--space-1); }
+.tx-note-input { resize: vertical; font-family: inherit; }
+.tx-note button { align-self: flex-start; }
 .dialog-rules { width: min(620px, 100%); }
 .rule-tx-ref { padding-bottom: var(--space-4); margin-bottom: var(--space-4); border-bottom: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-2); }
 .rule-tx-ref-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
