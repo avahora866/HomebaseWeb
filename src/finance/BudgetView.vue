@@ -302,7 +302,7 @@ function fileSizeLabel(file: File): string {
               :class="{ active: selectedTx?.id === m.id }"
               @click="openTxDetail(m)"
             >
-              <div>
+              <div class="tx-info">
                 <div class="tx-desc">{{ m.description }}</div>
                 <div class="tx-meta">
                   {{ m.source }}
@@ -310,7 +310,7 @@ function fileSizeLabel(file: File): string {
                   <span v-if="m.subscription" class="tag tag-neutral tx-tag">Subscription</span>
                 </div>
               </div>
-              <span :class="m.amount >= 0 ? 'ret-pos' : 'ret-neg'">
+              <span class="tx-amount" :class="m.amount >= 0 ? 'ret-pos' : 'ret-neg'">
                 {{ m.amount > 0 ? '+' : '' }}{{ money2(m.amount) }}
               </span>
             </div>
@@ -437,18 +437,25 @@ function fileSizeLabel(file: File): string {
 .cal-metrics { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; gap: 2px; }
 .cal-metrics .in { color: var(--color-accent-700); }
 .cal-metrics .out { color: var(--color-accent-2-700); }
-.tx-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--color-neutral-300); }
+.tx-row { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--color-neutral-300); }
 .tx-row:first-child { border-top: none; }
-.tx-row-clickable { cursor: pointer; margin: 0 calc(var(--space-2) * -1); padding-left: var(--space-2); padding-right: var(--space-2); border-radius: var(--radius-md); }
+.tx-row-clickable { cursor: pointer; border-radius: var(--radius-md); }
 .tx-row-clickable:hover { background: var(--color-accent-100); }
 .tx-row-clickable.active { background: var(--color-accent-100); }
-.tx-desc { font-size: 14px; }
-.tx-meta { display: flex; align-items: center; gap: var(--space-2); font-size: 11px; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.tx-info { min-width: 0; flex: 1 1 auto; }
+.tx-desc { font-size: 14px; overflow-wrap: anywhere; }
+.tx-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); font-size: 11px; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 .tx-tag { text-transform: none; letter-spacing: 0.02em; }
+.tx-amount { flex: 0 0 auto; white-space: nowrap; }
 
-.dialog-with-panel { flex-direction: row; align-items: stretch; gap: 0; overflow: hidden; width: min(440px, 100%); transition: width 0.22s ease; }
-.dialog-with-panel.panel-open { width: min(760px, 100%); }
+.dialog-with-panel { flex-direction: row; align-items: stretch; gap: 0; overflow: hidden; width: min(480px, 100%); transition: width 0.22s ease; }
+.dialog-with-panel.panel-open { width: min(800px, 100%); }
 .dialog-main { display: flex; flex-direction: column; gap: var(--space-3); flex: 1 1 auto; min-width: 0; }
+.dialog-body { overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent; }
+.dialog-body::-webkit-scrollbar { width: 6px; }
+.dialog-body::-webkit-scrollbar-track { background: transparent; }
+.dialog-body::-webkit-scrollbar-thumb { background: var(--color-neutral-400); border-radius: 999px; }
+.dialog-body::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-500); }
 .tx-panel { flex: 0 0 280px; width: 280px; margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-3); }
 .tx-panel-header { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 16px; }
 .tx-panel-close { background: none; border: none; font-size: 20px; line-height: 1; color: var(--color-neutral-500); cursor: pointer; padding: 0 var(--space-1); }
