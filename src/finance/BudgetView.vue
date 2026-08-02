@@ -31,16 +31,30 @@ const uploadFiles = ref<File[]>([])
 const uploadItems = ref<UploadItem[]>([])
 const uploadError = ref<string | null>(null)
 
+const exportRangeOpen = ref(false)
+const exportFrom = ref('')
+const exportTo = ref('')
+const exportError = ref<string | null>(null)
+const exporting = ref(false)
+
 const monthLabel = computed(() =>
   cal.value.toLocaleString('default', { month: 'long', year: 'numeric' }),
 )
 
-async function fetchData() {
-  loading.value = true
+const monthRange = computed(() => {
   const year = cal.value.getFullYear()
   const month = cal.value.getMonth()
-  const from = toLocalIsoDate(new Date(year, month, 1))
-  const to = toLocalIsoDate(new Date(year, month + 1, 0))
+  return {
+    from: toLocalIsoDate(new Date(year, month, 1)),
+    to: toLocalIsoDate(new Date(year, month + 1, 0)),
+  }
+})
+
+async function fetchData() {
+  loading.value = true
+  const { from, to } = monthRange.value
+  const year = cal.value.getFullYear()
+  const month = cal.value.getMonth()
   const monthParam = `${year}-${String(month + 1).padStart(2, '0')}`
 
   try {
@@ -233,6 +247,51 @@ async function submitUpload() {
 function fileSizeLabel(file: File): string {
   return `${(file.size / 1024).toFixed(0)} KB`
 }
+
+function downloadJson(data: Transaction[], filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportMonth() {
+  const { from, to } = monthRange.value
+  downloadJson(transactions.value, `transactions-${from}-to-${to}.json`)
+}
+
+function toggleExportRange() {
+  exportRangeOpen.value = !exportRangeOpen.value
+  if (exportRangeOpen.value) {
+    exportFrom.value = monthRange.value.from
+    exportTo.value = monthRange.value.to
+    exportError.value = null
+  }
+}
+
+async function exportCustomRange() {
+  if (!exportFrom.value || !exportTo.value) {
+    exportError.value = 'Choose both a start and end date.'
+    return
+  }
+  if (exportFrom.value > exportTo.value) {
+    exportError.value = 'Start date must be before end date.'
+    return
+  }
+  exportError.value = null
+  exporting.value = true
+  try {
+    const data = await getTransactions(exportFrom.value, exportTo.value)
+    downloadJson(data, `transactions-${exportFrom.value}-to-${exportTo.value}.json`)
+  } catch (e) {
+    exportError.value = e instanceof Error ? e.message : 'Export failed'
+  } finally {
+    exporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -247,11 +306,37 @@ function fileSizeLabel(file: File): string {
         <button class="btn btn-ghost btn-icon" @click="nextMonth" aria-label="Next month">→</button>
       </div>
       <button class="btn btn-secondary" @click="openUpload">Upload bank statement</button>
+      <div class="bud-export">
+        <button class="btn btn-secondary" @click="exportMonth">Export JSON</button>
+        <button
+          class="btn btn-ghost"
+          @click="toggleExportRange"
+          :aria-expanded="exportRangeOpen"
+        >
+          Custom range {{ exportRangeOpen ? '▴' : '▾' }}
+        </button>
+      </div>
       <div class="bud-summary" v-if="summary">
         <span><span class="lbl">In</span><span class="ret-pos">{{ money(summary.totalIncome) }}</span></span>
         <span><span class="lbl">Out</span><span class="ret-neg">{{ money(summary.totalSpending) }}</span></span>
         <span><span class="lbl">Net</span><span :class="summary.netFlow >= 0 ? 'ret-pos' : 'ret-neg'">{{ money(summary.netFlow) }}</span></span>
       </div>
+    </div>
+
+    <div v-if="exportRangeOpen" class="bud-export-range">
+      <div class="field">
+        <label for="export-from">From</label>
+        <input id="export-from" class="input" type="date" v-model="exportFrom" />
+      </div>
+      <div class="field">
+        <label for="export-to">To</label>
+        <input id="export-to" class="input" type="date" v-model="exportTo" />
+      </div>
+      <button class="btn btn-primary" @click="exportCustomRange" :disabled="exporting">
+        {{ exporting ? 'Exporting…' : 'Export range' }}
+      </button>
+      <button class="btn btn-ghost" @click="exportRangeOpen = false">Cancel</button>
+      <p v-if="exportError" class="upload-error">{{ exportError }}</p>
     </div>
 
     <div class="bud-filters">
@@ -421,6 +506,10 @@ function fileSizeLabel(file: File): string {
 .bud-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: var(--space-5); margin-bottom: var(--space-6); }
 .bud-nav { display: flex; align-items: center; gap: var(--space-4); }
 .bud-nav h2 { font-family: var(--font-heading); font-weight: 400; font-size: 22px; margin: 0; min-width: 200px; text-align: center; }
+.bud-export { display: flex; align-items: center; gap: var(--space-2); }
+.bud-export-range { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-6); }
+.bud-export-range .field { width: 170px; }
+.bud-export-range .upload-error { flex-basis: 100%; margin: 0; }
 .bud-summary { display: flex; gap: var(--space-5); font-size: 13px; }
 .bud-summary .lbl { color: var(--color-neutral-500); margin-right: var(--space-1); }
 .bud-filters { display: flex; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-5); }
