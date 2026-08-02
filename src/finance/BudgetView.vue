@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { getMonthlySummary, getTransactions, updateTransactionNote, uploadStatement } from './api'
+import {
+  createTagRule,
+  deleteTagRule,
+  getMonthlySummary,
+  getTagRules,
+  getTransactions,
+  reapplyTagRules,
+  updateTagRule,
+  updateTransactionNote,
+  updateTransactionTags,
+  uploadStatement,
+} from './api'
 import { money, money2, toLocalIsoDate } from './format'
-import type { MonthlySummary, StatementUploadOutcome, Transaction } from './types'
+import type { MonthlySummary, ReapplyResult, StatementUploadOutcome, TagRule, Transaction } from './types'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -24,6 +35,33 @@ const selectedTx = ref<Transaction | null>(null)
 
 const tagFilter = ref('')
 const subscriptionsOnly = ref(false)
+
+const tagDraft = ref('')
+const subscriptionDraft = ref(false)
+const savingTag = ref(false)
+const tagSaveError = ref<string | null>(null)
+
+const noteDraft = ref('')
+const noteSaving = ref(false)
+const noteError = ref<string | null>(null)
+
+const tagRules = ref<TagRule[]>([])
+const ruleModalOpen = ref(false)
+const ruleSearch = ref('')
+const rulesLoading = ref(false)
+const rulesError = ref<string | null>(null)
+const editingRuleId = ref<number | null>(null)
+const ruleDraftStatement = ref('')
+const ruleDraftPriority = ref(0)
+const newRuleOpen = ref(false)
+const newRuleStatement = ref('')
+const newRulePriority = ref(0)
+const ruleSaving = ref(false)
+const ruleSaveError = ref<string | null>(null)
+const reapplying = ref(false)
+const reapplyResult = ref<ReapplyResult | null>(null)
+const copiedField = ref<string | null>(null)
+let copiedFieldTimeout: ReturnType<typeof setTimeout> | undefined
 
 const uploadOpen = ref(false)
 const uploadStage = ref<'idle' | 'selected' | 'uploading' | 'done'>('idle')
@@ -182,10 +220,6 @@ const txDetailDate = computed(() => {
   })
 })
 
-const noteDraft = ref('')
-const noteSaving = ref(false)
-const noteError = ref<string | null>(null)
-
 function openTxDetail(t: Transaction) {
   selectedTx.value = t
   noteDraft.value = t.note ?? ''
@@ -194,6 +228,33 @@ function openTxDetail(t: Transaction) {
 
 function closeTxDetail() {
   selectedTx.value = null
+}
+
+watch(selectedTx, (t) => {
+  tagDraft.value = t?.tags ?? ''
+  subscriptionDraft.value = t?.subscription ?? false
+  tagSaveError.value = null
+})
+
+const tagEditDirty = computed(() => {
+  if (!selectedTx.value) return false
+  return tagDraft.value.trim() !== (selectedTx.value.tags ?? '') || subscriptionDraft.value !== selectedTx.value.subscription
+})
+
+async function saveTagEdit() {
+  if (!selectedTx.value || savingTag.value) return
+  savingTag.value = true
+  tagSaveError.value = null
+  try {
+    const updated = await updateTransactionTags(selectedTx.value.id, tagDraft.value.trim(), subscriptionDraft.value)
+    const idx = transactions.value.findIndex((t) => t.id === updated.id)
+    if (idx !== -1) transactions.value[idx] = updated
+    selectedTx.value = updated
+  } catch (e) {
+    tagSaveError.value = e instanceof Error ? e.message : 'Failed to save tag'
+  } finally {
+    savingTag.value = false
+  }
 }
 
 async function saveNote() {
@@ -209,6 +270,142 @@ async function saveNote() {
     noteError.value = e instanceof Error ? e.message : 'Failed to save note'
   } finally {
     noteSaving.value = false
+  }
+}
+
+const filteredRules = computed(() => {
+  const q = ruleSearch.value.trim().toLowerCase()
+  if (!q) return tagRules.value
+  return tagRules.value.filter((r) => r.statement.toLowerCase().includes(q))
+})
+
+async function loadTagRules() {
+  rulesLoading.value = true
+  rulesError.value = null
+  try {
+    tagRules.value = await getTagRules()
+  } catch (e) {
+    rulesError.value = e instanceof Error ? e.message : 'Failed to load tag rules'
+  } finally {
+    rulesLoading.value = false
+  }
+}
+
+function openRuleModal() {
+  ruleModalOpen.value = true
+  ruleSearch.value = selectedTx.value?.tags ?? ''
+  editingRuleId.value = null
+  newRuleOpen.value = false
+  ruleSaveError.value = null
+  reapplyResult.value = null
+  loadTagRules()
+}
+
+function closeRuleModal() {
+  ruleModalOpen.value = false
+  editingRuleId.value = null
+  newRuleOpen.value = false
+}
+
+async function copyField(label: string, value: string) {
+  try {
+    await navigator.clipboard.writeText(value)
+    copiedField.value = label
+    clearTimeout(copiedFieldTimeout)
+    copiedFieldTimeout = setTimeout(() => {
+      copiedField.value = null
+    }, 1500)
+  } catch (e) {
+    rulesError.value = e instanceof Error ? e.message : 'Failed to copy to clipboard'
+  }
+}
+
+function startEditRule(rule: TagRule) {
+  editingRuleId.value = rule.id
+  ruleDraftStatement.value = rule.statement
+  ruleDraftPriority.value = rule.priority
+  ruleSaveError.value = null
+  newRuleOpen.value = false
+}
+
+function cancelEditRule() {
+  editingRuleId.value = null
+  ruleSaveError.value = null
+}
+
+async function reapplyRulesAndRefresh() {
+  reapplying.value = true
+  try {
+    reapplyResult.value = await reapplyTagRules()
+    await fetchData()
+    if (selectedTx.value) {
+      const refreshed = transactions.value.find((t) => t.id === selectedTx.value!.id)
+      if (refreshed) selectedTx.value = refreshed
+    }
+  } catch (e) {
+    rulesError.value = e instanceof Error ? e.message : 'Failed to reapply tag rules'
+  } finally {
+    reapplying.value = false
+  }
+}
+
+async function saveRuleEdit(id: number) {
+  ruleSaving.value = true
+  ruleSaveError.value = null
+  try {
+    const updated = await updateTagRule(id, { statement: ruleDraftStatement.value, priority: ruleDraftPriority.value })
+    const idx = tagRules.value.findIndex((r) => r.id === id)
+    if (idx !== -1) tagRules.value[idx] = updated
+    editingRuleId.value = null
+    await reapplyRulesAndRefresh()
+  } catch (e) {
+    ruleSaveError.value = e instanceof Error ? e.message : 'Failed to save rule'
+  } finally {
+    ruleSaving.value = false
+  }
+}
+
+async function deleteRule(id: number) {
+  ruleSaving.value = true
+  ruleSaveError.value = null
+  try {
+    await deleteTagRule(id)
+    tagRules.value = tagRules.value.filter((r) => r.id !== id)
+    if (editingRuleId.value === id) editingRuleId.value = null
+    await reapplyRulesAndRefresh()
+  } catch (e) {
+    ruleSaveError.value = e instanceof Error ? e.message : 'Failed to delete rule'
+  } finally {
+    ruleSaving.value = false
+  }
+}
+
+function startNewRule() {
+  newRuleOpen.value = true
+  editingRuleId.value = null
+  const maxPriority = tagRules.value.reduce((max, r) => Math.max(max, r.priority), -1)
+  newRulePriority.value = maxPriority + 1
+  const tagGuess = selectedTx.value?.tags || ruleSearch.value.trim() || '...'
+  newRuleStatement.value = `UPDATE transactions SET tags = '${tagGuess}' WHERE description LIKE '%...%'`
+  ruleSaveError.value = null
+}
+
+function cancelNewRule() {
+  newRuleOpen.value = false
+}
+
+async function createNewRule() {
+  ruleSaving.value = true
+  ruleSaveError.value = null
+  try {
+    const created = await createTagRule({ statement: newRuleStatement.value, priority: newRulePriority.value })
+    tagRules.value = [...tagRules.value, created].sort((a, b) => a.priority - b.priority)
+    newRuleOpen.value = false
+    await reapplyRulesAndRefresh()
+  } catch (e) {
+    ruleSaveError.value = e instanceof Error ? e.message : 'Failed to create rule'
+  } finally {
+    ruleSaving.value = false
   }
 }
 
@@ -454,14 +651,53 @@ async function exportCustomRange() {
                 <span class="tx-detail-label">Source</span>
                 <span>{{ selectedTx?.source }}</span>
               </div>
-              <div class="tx-detail-row">
+              <div class="tx-detail-row tx-detail-edit">
                 <span class="tx-detail-label">Tag</span>
-                <span v-if="selectedTx?.tags" class="tag tag-neutral tx-tag">{{ selectedTx.tags }}</span>
-                <span v-else style="color: var(--color-neutral-500)">None</span>
+                <div class="tx-tag-edit">
+                  <input
+                    class="input"
+                    list="tag-suggestions"
+                    v-model="tagDraft"
+                    placeholder="Untagged"
+                    @keydown.enter="saveTagEdit"
+                  />
+                  <datalist id="tag-suggestions">
+                    <option v-for="t in availableTags" :key="t" :value="t" />
+                  </datalist>
+                </div>
               </div>
               <div class="tx-detail-row">
                 <span class="tx-detail-label">Subscription</span>
-                <span>{{ selectedTx?.subscription ? 'Yes' : 'No' }}</span>
+                <label class="tx-sub-toggle">
+                  <input type="checkbox" v-model="subscriptionDraft" />
+                  {{ subscriptionDraft ? 'Yes' : 'No' }}
+                </label>
+              </div>
+              <div class="tx-tag-actions">
+                <button
+                  class="btn btn-primary"
+                  @click="saveTagEdit"
+                  :disabled="savingTag || !tagEditDirty"
+                >
+                  {{ savingTag ? 'Saving…' : 'Save' }}
+                </button>
+                <p v-if="tagSaveError" class="upload-error">{{ tagSaveError }}</p>
+              </div>
+              <div class="tx-rule-link">
+                <button class="btn btn-ghost" @click="openRuleModal">Manage matching tag rule →</button>
+              </div>
+              <div class="tx-note">
+                <span class="tx-detail-label">Note</span>
+                <textarea
+                  class="input tx-note-input"
+                  v-model="noteDraft"
+                  rows="3"
+                  placeholder="Add a note…"
+                ></textarea>
+                <button class="btn btn-secondary" @click="saveNote" :disabled="noteSaving">
+                  {{ noteSaving ? 'Saving…' : 'Save note' }}
+                </button>
+                <p v-if="noteError" class="upload-error">{{ noteError }}</p>
               </div>
               <div class="tx-note">
                 <span class="tx-detail-label">Note</span>
@@ -479,6 +715,125 @@ async function exportCustomRange() {
             </div>
           </div>
         </transition>
+      </div>
+    </div>
+
+    <div v-if="ruleModalOpen" class="dialog-backdrop" @click="closeRuleModal">
+      <div class="dialog dialog-rules" @click.stop>
+        <div class="dialog-title">Tag rules</div>
+        <div class="dialog-body">
+          <div v-if="selectedTx" class="rule-tx-ref">
+            <div class="rule-tx-ref-row">
+              <span class="tx-detail-label">Description</span>
+              <div class="rule-tx-ref-value">
+                <code>{{ selectedTx.description }}</code>
+                <button class="rule-copy" @click="copyField('description', selectedTx.description)">
+                  {{ copiedField === 'description' ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
+            </div>
+            <div class="rule-tx-ref-row">
+              <span class="tx-detail-label">Source</span>
+              <div class="rule-tx-ref-value">
+                <code>{{ selectedTx.source }}</code>
+                <button class="rule-copy" @click="copyField('source', selectedTx.source)">
+                  {{ copiedField === 'source' ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
+            </div>
+            <div class="rule-tx-ref-row">
+              <span class="tx-detail-label">Amount</span>
+              <div class="rule-tx-ref-value">
+                <code>{{ selectedTx.amount }}</code>
+                <button class="rule-copy" @click="copyField('amount', String(selectedTx.amount))">
+                  {{ copiedField === 'amount' ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
+            </div>
+            <div v-if="selectedTx.tags" class="rule-tx-ref-row">
+              <span class="tx-detail-label">Current tag</span>
+              <div class="rule-tx-ref-value">
+                <code>{{ selectedTx.tags }}</code>
+                <button class="rule-copy" @click="copyField('tags', selectedTx.tags)">
+                  {{ copiedField === 'tags' ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field rule-search">
+            <label for="rule-search">Search by tag or keyword</label>
+            <input
+              id="rule-search"
+              class="input"
+              v-model="ruleSearch"
+              placeholder="e.g. Netflix, Entertainment"
+            />
+          </div>
+
+          <p v-if="rulesLoading" class="upload-note">Loading rules…</p>
+          <p v-else-if="filteredRules.length === 0" class="upload-note" style="font-style: italic">
+            No matching rules. Create one below.
+          </p>
+
+          <div v-for="rule in filteredRules" :key="rule.id" class="rule-row">
+            <template v-if="editingRuleId === rule.id">
+              <div class="field">
+                <label>Priority</label>
+                <input class="input" type="number" v-model.number="ruleDraftPriority" />
+              </div>
+              <div class="field">
+                <label>Statement</label>
+                <textarea class="input rule-textarea" v-model="ruleDraftStatement" rows="3"></textarea>
+              </div>
+              <div class="rule-actions">
+                <button class="btn btn-primary" @click="saveRuleEdit(rule.id)" :disabled="ruleSaving">
+                  {{ ruleSaving ? 'Saving…' : 'Save' }}
+                </button>
+                <button class="btn btn-ghost" @click="cancelEditRule">Cancel</button>
+                <button class="btn btn-ghost rule-delete" @click="deleteRule(rule.id)" :disabled="ruleSaving">
+                  Delete
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="rule-view" @click="startEditRule(rule)">
+                <span class="rule-priority">#{{ rule.priority }}</span>
+                <code class="rule-statement">{{ rule.statement }}</code>
+              </div>
+            </template>
+          </div>
+
+          <div class="rule-new">
+            <button v-if="!newRuleOpen" class="btn btn-secondary" @click="startNewRule">+ New tag rule</button>
+            <template v-else>
+              <div class="field">
+                <label>Priority</label>
+                <input class="input" type="number" v-model.number="newRulePriority" />
+              </div>
+              <div class="field">
+                <label>Statement</label>
+                <textarea class="input rule-textarea" v-model="newRuleStatement" rows="3"></textarea>
+              </div>
+              <div class="rule-actions">
+                <button class="btn btn-primary" @click="createNewRule" :disabled="ruleSaving">
+                  {{ ruleSaving ? 'Creating…' : 'Create' }}
+                </button>
+                <button class="btn btn-ghost" @click="cancelNewRule">Cancel</button>
+              </div>
+            </template>
+          </div>
+
+          <p v-if="ruleSaveError" class="upload-error">{{ ruleSaveError }}</p>
+          <p v-if="rulesError" class="upload-error">{{ rulesError }}</p>
+          <p v-if="reapplying" class="upload-note">Reapplying rules…</p>
+          <p v-else-if="reapplyResult" class="upload-note">
+            Applied {{ reapplyResult.rulesRun }} rule(s), {{ reapplyResult.rowsAffected }} row update(s).
+          </p>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-ghost" @click="closeRuleModal">Close</button>
+        </div>
       </div>
     </div>
 
@@ -599,9 +954,32 @@ async function exportCustomRange() {
 .tx-detail-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--color-neutral-300); }
 .tx-detail-row:first-of-type { border-top: none; }
 .tx-detail-label { color: var(--color-neutral-500); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.tx-detail-edit .tx-tag-edit { width: 160px; }
+.tx-detail-edit .input { width: 100%; }
+.tx-sub-toggle { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: 13px; }
+.tx-tag-actions { display: flex; align-items: center; gap: var(--space-3); padding-top: var(--space-3); }
+.tx-rule-link { padding-top: var(--space-2); }
 .tx-note { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-neutral-300); margin-top: var(--space-1); }
 .tx-note-input { resize: vertical; font-family: inherit; }
 .tx-note button { align-self: flex-start; }
+.dialog-rules { width: min(620px, 100%); }
+.rule-tx-ref { padding-bottom: var(--space-4); margin-bottom: var(--space-4); border-bottom: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-2); }
+.rule-tx-ref-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.rule-tx-ref-value { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.rule-tx-ref-value code { font-size: 12px; overflow-wrap: anywhere; text-align: right; }
+.rule-copy { flex: 0 0 auto; background: none; border: none; color: var(--color-accent-700); font-size: 11px; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm); }
+.rule-copy:hover { background: var(--color-accent-100); }
+.rule-search { margin-bottom: var(--space-4); }
+.rule-row { padding: var(--space-3) 0; border-top: 1px solid var(--color-neutral-300); display: flex; flex-direction: column; gap: var(--space-2); }
+.rule-row:first-of-type { border-top: none; }
+.rule-view { display: flex; align-items: flex-start; gap: var(--space-3); cursor: pointer; padding: var(--space-1); border-radius: var(--radius-md); }
+.rule-view:hover { background: var(--color-accent-100); }
+.rule-priority { flex: 0 0 auto; font-size: 11px; color: var(--color-neutral-500); padding-top: 2px; }
+.rule-statement { flex: 1 1 auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rule-textarea { font-family: monospace; font-size: 12px; resize: vertical; }
+.rule-actions { display: flex; gap: var(--space-2); }
+.rule-delete { color: var(--color-accent-2-700); }
+.rule-new { padding-top: var(--space-3); border-top: 1px solid var(--color-neutral-300); margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; }
 .upload-drop { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; padding: var(--space-8) var(--space-4); border: 1px dashed var(--color-neutral-400); border-radius: var(--radius-md); color: var(--color-accent-700); cursor: pointer; }
 .upload-drop:hover { background: var(--color-accent-100); border-color: var(--color-accent-500); }
 .upload-drop-title { font-size: 14px; color: var(--color-text); }
