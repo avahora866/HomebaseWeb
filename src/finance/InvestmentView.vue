@@ -4,12 +4,17 @@ import { getGoals, getPortfolio } from './api'
 import { money, money2 } from './format'
 import type { Holding, MoneyGoal, PortfolioSummary } from './types'
 
+// Slice names are the net worth categories (from Finance → Net Worth) plus the two live
+// Trading212 figures.
 const ALLOCATION_COLORS: Record<string, string> = {
-  'Cash ISA': 'var(--color-accent-500)',
-  'Stock Cash': 'var(--color-accent-300)',
+  Cash: 'var(--color-accent-300)',
+  Savings: 'var(--color-accent-500)',
+  Investment: 'var(--color-accent-700)',
+  Pension: 'var(--color-neutral-500)',
+  Property: 'var(--color-neutral-700)',
+  Other: 'var(--color-neutral-400)',
+  'Stock Cash': 'var(--color-accent-200)',
   Invested: 'var(--color-accent-2-500)',
-  'External Cash': 'var(--color-neutral-700)',
-  'Moneybox LISA': 'var(--color-neutral-400)',
 }
 const FALLBACK_COLORS = [
   'var(--color-accent-600)',
@@ -167,15 +172,21 @@ const heatTiles = computed(() => {
         <div class="donut-wrap">
           <div class="donut" :style="{ background: donutGradient }">
             <div class="donut-center">
-              <span class="lbl">Total</span>
+              <span class="lbl">Net</span>
               <span class="val">{{ money(portfolio.totalValue) }}</span>
             </div>
           </div>
           <div class="legend">
             <div v-for="(c, i) in portfolio.allocations" :key="c.name" class="legend-item">
               <span class="legend-dot" :style="{ background: colorFor(c.name, i) }"></span>{{ c.name }}
+              <span class="legend-amt">{{ money(c.value) }}</span>
             </div>
           </div>
+          <!-- The slices are the assets; any liabilities tracked on the Net Worth tab are only in
+               the net figure at the centre, which is why the two don't add up to each other. -->
+          <p class="donut-note">
+            Slices are your assets — liabilities are already deducted from the net figure.
+          </p>
         </div>
       </div>
 
@@ -255,6 +266,8 @@ const heatTiles = computed(() => {
 .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-5); }
 .legend-item { display: flex; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--color-neutral-600); }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.legend-amt { font-variant-numeric: tabular-nums; color: var(--color-text); }
+.donut-note { font-size: 11.5px; font-style: italic; color: var(--color-neutral-500); text-align: center; max-width: 320px; margin: 0; }
 .heat-title, .section-title { font-family: var(--font-heading); font-weight: 400; font-size: 20px; margin: 0 0 var(--space-5); }
 .heat-grid { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: var(--space-8); }
 .heat-tile { display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff; font-size: 12px; letter-spacing: 0.02em; min-width: 48px; min-height: 48px; position: relative; }
