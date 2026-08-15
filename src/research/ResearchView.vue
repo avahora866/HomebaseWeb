@@ -26,8 +26,9 @@ async function findPapers() {
     <p class="fin-kicker">Research</p>
     <h1 class="fin-title">Research Paper Picker</h1>
     <p class="research-hint">
-      Pulls open-access survey/review papers from Physics, Mathematics and Economics/Political
-      Science, then has the LLM pick and summarize the three most worth reading.
+      Pulls open-access survey/review papers from Physics, Mathematics, Economics/Political
+      Science, Engineering, Chemistry, Biology and Psychology, then has the LLM pick and
+      summarize the most worth-reading paper in each field.
     </p>
 
     <button class="btn btn-primary" @click="findPapers" :disabled="loading">
