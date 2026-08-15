@@ -3,11 +3,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import {
   createTagRule,
   deleteTagRule,
-  getManualBalances,
   getTagRules,
   importTagRuleScript,
   reapplyTagRules,
-  updateManualBalances,
   updateTagRule,
 } from '../finance/api'
 import {
@@ -19,7 +17,7 @@ import {
   setProductionApiUrl,
   type ApiEnvironment,
 } from './apiEnvironment'
-import type { ManualBalances, ReapplyResult, RuleImportOutcome, TagRule } from '../finance/types'
+import type { ReapplyResult, RuleImportOutcome, TagRule } from '../finance/types'
 
 const environment = ref<ApiEnvironment>(getApiEnvironment())
 const prodUrlDraft = ref(getProductionApiUrl())
@@ -35,47 +33,6 @@ function saveProdUrl() {
   setProductionApiUrl(prodUrlDraft.value)
   prodUrlDraft.value = getProductionApiUrl()
   activeBaseUrl.value = resolveApiBaseUrl()
-}
-
-const balances = ref<ManualBalances>({
-  cashIsaBalance: 0,
-  moneyboxLisaBalance: 0,
-  snoopBalance: 0,
-  savingsOneBalance: 0,
-  savingsTwoBalance: 0,
-})
-const loading = ref(true)
-const loadError = ref<string | null>(null)
-const saving = ref(false)
-const saveError = ref<string | null>(null)
-const saved = ref(false)
-
-async function loadBalances() {
-  loading.value = true
-  loadError.value = null
-  try {
-    balances.value = await getManualBalances()
-  } catch (e) {
-    loadError.value = e instanceof Error ? e.message : 'Failed to load balances'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(loadBalances)
-
-async function saveBalances() {
-  saving.value = true
-  saveError.value = null
-  saved.value = false
-  try {
-    balances.value = await updateManualBalances(balances.value)
-    saved.value = true
-  } catch (e) {
-    saveError.value = e instanceof Error ? e.message : 'Failed to save balances'
-  } finally {
-    saving.value = false
-  }
 }
 
 const rules = ref<TagRule[]>([])
@@ -278,41 +235,9 @@ function truncate(text: string, max: number): string {
     <section class="settings-section">
       <h2 class="section-title">Manual Balances</h2>
       <p class="section-hint">
-        Balances with no live API — feed into the Investment tab's portfolio total.
+        Moved to <strong>Finance → Net Worth</strong>, where each balance is its own row you can add,
+        edit and delete.
       </p>
-
-      <p v-if="loading" style="color: var(--color-neutral-500)">Loading…</p>
-      <p v-else-if="loadError" class="error-text">{{ loadError }}</p>
-      <template v-else>
-        <div class="balances-grid">
-          <div class="field">
-            <label for="cash-isa">Cash ISA</label>
-            <input id="cash-isa" class="input" type="number" step="0.01" v-model.number="balances.cashIsaBalance" />
-          </div>
-          <div class="field">
-            <label for="lisa">Moneybox LISA</label>
-            <input id="lisa" class="input" type="number" step="0.01" v-model.number="balances.moneyboxLisaBalance" />
-          </div>
-          <div class="field">
-            <label for="snoop">Snoop</label>
-            <input id="snoop" class="input" type="number" step="0.01" v-model.number="balances.snoopBalance" />
-          </div>
-          <div class="field">
-            <label for="savings-one">Savings account 1</label>
-            <input id="savings-one" class="input" type="number" step="0.01" v-model.number="balances.savingsOneBalance" />
-          </div>
-          <div class="field">
-            <label for="savings-two">Savings account 2</label>
-            <input id="savings-two" class="input" type="number" step="0.01" v-model.number="balances.savingsTwoBalance" />
-          </div>
-        </div>
-
-        <button class="btn btn-primary" @click="saveBalances" :disabled="saving">
-          {{ saving ? 'Saving…' : 'Save balances' }}
-        </button>
-        <p v-if="saveError" class="error-text">{{ saveError }}</p>
-        <p v-if="saved" class="success-text">Saved.</p>
-      </template>
     </section>
 
     <section class="settings-section rules-section">
@@ -434,8 +359,6 @@ function truncate(text: string, max: number): string {
 .field { margin-bottom: var(--space-3); }
 .current-url { font-size: 12px; color: var(--color-neutral-600); margin-top: var(--space-4); line-height: 1.8; }
 .current-url code { font-family: monospace; }
-.balances-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3) var(--space-4); margin-bottom: var(--space-4); }
-@media (max-width: 500px) { .balances-grid { grid-template-columns: 1fr; } }
 .error-text { font-size: 13px; color: var(--color-accent-2-700); margin-top: var(--space-3); }
 .success-text { font-size: 13px; color: var(--color-accent-700); margin-top: var(--space-3); }
 

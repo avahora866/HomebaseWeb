@@ -51,12 +51,44 @@ export interface StatementUploadOutcome {
   error: string | null
 }
 
-export interface ManualBalances {
-  cashIsaBalance: number
-  moneyboxLisaBalance: number
-  snoopBalance: number
-  savingsOneBalance: number
-  savingsTwoBalance: number
+export type NetWorthCategory =
+  | 'CASH'
+  | 'SAVINGS'
+  | 'INVESTMENT'
+  | 'PENSION'
+  | 'PROPERTY'
+  | 'OTHER'
+  | 'LIABILITY'
+
+export interface NetWorthAccount {
+  id: number
+  name: string
+  category: NetWorthCategory
+  balance: number
+  sortOrder: number
+  updatedAt: string | null
+}
+
+/** The create/update body — the server assigns `id`/`updatedAt`, and appends when `sortOrder` is omitted. */
+export interface NetWorthAccountInput {
+  name: string
+  category: NetWorthCategory
+  balance: number
+  sortOrder?: number
+}
+
+export interface NetWorthCategoryTotal {
+  category: NetWorthCategory
+  label: string
+  total: number
+}
+
+export interface NetWorthSummary {
+  totalAssets: number
+  totalLiabilities: number
+  netWorth: number
+  categories: NetWorthCategoryTotal[]
+  accounts: NetWorthAccount[]
 }
 
 export interface TagRule {

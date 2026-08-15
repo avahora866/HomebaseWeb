@@ -2,18 +2,21 @@
 import { ref } from 'vue'
 import InvestmentView from './InvestmentView.vue'
 import BudgetView from './BudgetView.vue'
+import NetWorthView from './NetWorthView.vue'
 
-const tab = ref<'invest' | 'budget'>('budget')
+const tab = ref<'invest' | 'budget' | 'networth'>('budget')
 </script>
 
 <template>
   <div class="fin-wrap">
     <div class="fin-tabs">
       <button class="fin-tab" :class="{ active: tab === 'budget' }" @click="tab = 'budget'">Budget</button>
+      <button class="fin-tab" :class="{ active: tab === 'networth' }" @click="tab = 'networth'">Net Worth</button>
       <button class="fin-tab" :class="{ active: tab === 'invest' }" @click="tab = 'invest'">Investment</button>
     </div>
 
     <InvestmentView v-if="tab === 'invest'" />
+    <NetWorthView v-else-if="tab === 'networth'" />
     <BudgetView v-else />
   </div>
 </template>

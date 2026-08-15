@@ -1,8 +1,10 @@
 import { resolveApiBaseUrl } from '../settings/apiEnvironment'
 import type {
-  ManualBalances,
   MonthlySummary,
   MoneyGoal,
+  NetWorthAccount,
+  NetWorthAccountInput,
+  NetWorthSummary,
   PortfolioSummary,
   ReapplyResult,
   RuleImportOutcome,
@@ -42,12 +44,27 @@ export function getGoals(): Promise<MoneyGoal[]> {
   return getJson('/finance/investments/goals')
 }
 
-export function getManualBalances(): Promise<ManualBalances> {
-  return getJson('/finance/investments/balances')
+export function getNetWorthSummary(): Promise<NetWorthSummary> {
+  return getJson('/finance/networth/summary')
 }
 
-export function updateManualBalances(balances: ManualBalances): Promise<ManualBalances> {
-  return sendJson('/finance/investments/balances', 'PUT', balances)
+export function getNetWorthAccounts(): Promise<NetWorthAccount[]> {
+  return getJson('/finance/networth/accounts')
+}
+
+export function createNetWorthAccount(account: NetWorthAccountInput): Promise<NetWorthAccount> {
+  return sendJson('/finance/networth/accounts', 'POST', account)
+}
+
+export function updateNetWorthAccount(
+  id: number,
+  account: NetWorthAccountInput,
+): Promise<NetWorthAccount> {
+  return sendJson(`/finance/networth/accounts/${id}`, 'PUT', account)
+}
+
+export function deleteNetWorthAccount(id: number): Promise<void> {
+  return sendJson(`/finance/networth/accounts/${id}`, 'DELETE')
 }
 
 export function getTransactions(from: string, to: string): Promise<Transaction[]> {
