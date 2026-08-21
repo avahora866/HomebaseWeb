@@ -122,8 +122,17 @@ const activeProject = computed(() => projects.value.find((p) => p.id === activeP
 const canAddTasks = computed(
   () => activeProject.value?.status === 'IDEA' || activeProject.value?.status === 'IN_PROGRESS',
 )
+
+const PRIORITY_RANK: Record<TaskPriority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 }
+function priorityRank(p: TaskPriority | null): number {
+  return p ? PRIORITY_RANK[p] : 3
+}
 const board = computed(() =>
-  COLUMNS.map((col) => ({ ...col, tasks: activeTasks.value.filter((t) => t.status === col.key) })),
+  COLUMNS.map((col) => {
+    const tasks = activeTasks.value.filter((t) => t.status === col.key)
+    tasks.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))
+    return { ...col, tasks }
+  }),
 )
 
 async function loadTasks() {
