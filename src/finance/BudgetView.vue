@@ -699,19 +699,6 @@ async function exportCustomRange() {
                 </button>
                 <p v-if="noteError" class="upload-error">{{ noteError }}</p>
               </div>
-              <div class="tx-note">
-                <span class="tx-detail-label">Note</span>
-                <textarea
-                  class="input tx-note-input"
-                  v-model="noteDraft"
-                  rows="3"
-                  placeholder="Add a note…"
-                ></textarea>
-                <button class="btn btn-secondary" @click="saveNote" :disabled="noteSaving">
-                  {{ noteSaving ? 'Saving…' : 'Save note' }}
-                </button>
-                <p v-if="noteError" class="upload-error">{{ noteError }}</p>
-              </div>
             </div>
           </div>
         </transition>
