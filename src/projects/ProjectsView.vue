@@ -121,7 +121,6 @@ const canAddTasks = computed(
   () => activeProject.value?.status === 'IDEA' || activeProject.value?.status === 'IN_PROGRESS',
 )
 
-const sortTasksByPriority = ref(false)
 const PRIORITY_RANK: Record<TaskPriority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 }
 function priorityRank(p: TaskPriority | null): number {
   return p ? PRIORITY_RANK[p] : 3
@@ -129,9 +128,7 @@ function priorityRank(p: TaskPriority | null): number {
 const board = computed(() =>
   COLUMNS.map((col) => {
     const tasks = activeTasks.value.filter((t) => t.status === col.key)
-    if (sortTasksByPriority.value) {
-      tasks.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))
-    }
+    tasks.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))
     return { ...col, tasks }
   }),
 )
@@ -513,13 +510,6 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
           <span class="tag" :class="TAG_CLASS[activeProject.status]">{{ STATUS_LABEL[activeProject.status] }}</span>
         </div>
         <div class="proj-board-actions">
-          <button
-            class="btn btn-ghost"
-            :aria-pressed="sortTasksByPriority"
-            @click="sortTasksByPriority = !sortTasksByPriority"
-          >
-            Sort by priority {{ sortTasksByPriority ? '✓' : '' }}
-          </button>
           <button class="btn btn-secondary" @click="openEditActiveProject">Edit project</button>
           <button class="btn btn-secondary" @click="deleteActiveProject">Delete project</button>
           <button
