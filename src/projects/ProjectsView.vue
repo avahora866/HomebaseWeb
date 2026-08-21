@@ -53,7 +53,8 @@ const loadError = ref<string | null>(null)
 
 const search = ref('')
 const statusFilter = ref<ProjectStatus | ''>('')
-const sortKey = ref<'name' | 'status'>('name')
+const categoryFilter = ref<number | ''>('')
+const sortKey = ref<'name' | 'status' | 'category'>('name')
 const sortDir = ref<'asc' | 'desc'>('asc')
 
 async function loadProjects() {
@@ -83,22 +84,23 @@ onMounted(() => {
 
 const filteredProjects = computed(() => {
   let rows = projects.value.filter((p) => (statusFilter.value ? p.status === statusFilter.value : true))
+  rows = rows.filter((p) => (categoryFilter.value ? p.categoryId === categoryFilter.value : true))
   const q = search.value.trim().toLowerCase()
   if (q) rows = rows.filter((p) => p.name.toLowerCase().includes(q))
   rows = [...rows].sort((a, b) => {
-    const av = a[sortKey.value].toLowerCase()
-    const bv = b[sortKey.value].toLowerCase()
+    const av = (sortKey.value === 'category' ? a.categoryName : a[sortKey.value]).toLowerCase()
+    const bv = (sortKey.value === 'category' ? b.categoryName : b[sortKey.value]).toLowerCase()
     const cmp = av < bv ? -1 : av > bv ? 1 : 0
     return sortDir.value === 'asc' ? cmp : -cmp
   })
   return rows
 })
 
-function sortIcon(key: 'name' | 'status'): string {
+function sortIcon(key: 'name' | 'status' | 'category'): string {
   if (sortKey.value !== key) return ''
   return sortDir.value === 'asc' ? '▲' : '▼'
 }
-function toggleSort(key: 'name' | 'status') {
+function toggleSort(key: 'name' | 'status' | 'category') {
   if (sortKey.value === key) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   } else {
@@ -459,6 +461,13 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
             <option v-for="s in STATUSES" :key="s.key" :value="s.key">{{ s.label }}</option>
           </select>
         </div>
+        <div class="field">
+          <label for="proj-category">Category</label>
+          <select id="proj-category" class="input" v-model.number="categoryFilter">
+            <option value="">All categories</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+        </div>
         <span class="proj-count">{{ filteredProjects.length }} project{{ filteredProjects.length === 1 ? '' : 's' }}</span>
         <button class="btn btn-primary" @click="openNewProject">+ New project</button>
       </div>
@@ -469,6 +478,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
           <tr>
             <th class="proj-sortable" @click="toggleSort('name')">Name {{ sortIcon('name') }}</th>
             <th class="proj-sortable" @click="toggleSort('status')">Status {{ sortIcon('status') }}</th>
+            <th class="proj-sortable" @click="toggleSort('category')">Category {{ sortIcon('category') }}</th>
             <th>Tasks</th>
             <th></th>
           </tr>
@@ -477,6 +487,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
           <tr v-for="p in filteredProjects" :key="p.id" class="proj-row" @click="openBoard(p.id)">
             <td>{{ p.name }}</td>
             <td><span class="tag" :class="TAG_CLASS[p.status]">{{ STATUS_LABEL[p.status] }}</span></td>
+            <td><span class="tag tag-outline">{{ p.categoryName }}</span></td>
             <td class="proj-task-summary">{{ taskSummary(p) }}</td>
             <td class="proj-row-actions">
               <button class="btn btn-ghost btn-icon" aria-label="Edit project" title="Edit" @click.stop="openEditProject(p.id)">
@@ -499,6 +510,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
         <div>
           <h1 class="fin-title proj-board-title">{{ activeProject.name }}</h1>
           <span class="tag" :class="TAG_CLASS[activeProject.status]">{{ STATUS_LABEL[activeProject.status] }}</span>
+          <span class="tag tag-outline">{{ activeProject.categoryName }}</span>
         </div>
         <div class="proj-board-actions">
           <button class="btn btn-secondary" @click="openEditActiveProject">Edit project</button>
@@ -722,6 +734,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
 .proj-filters { display: flex; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
 .proj-filters .field:first-child { width: 260px; }
 .proj-filters .field:nth-child(2) { width: 180px; }
+.proj-filters .field:nth-child(3) { width: 180px; }
 .proj-count { margin-left: auto; font-size: 13px; color: var(--color-neutral-500); padding-bottom: 8px; }
 
 .proj-sortable { cursor: pointer; user-select: none; }
@@ -733,6 +746,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
 .proj-back { padding-inline: 0; margin-bottom: var(--space-4); }
 .proj-board-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap; }
 .proj-board-title { font-size: clamp(28px, 3.4vw, 40px); margin-bottom: var(--space-2); }
+.proj-board-head .tag + .tag { margin-left: var(--space-2); }
 .proj-board-actions { display: flex; gap: var(--space-2); }
 
 .proj-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); align-items: start; }
