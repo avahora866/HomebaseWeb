@@ -109,6 +109,13 @@ function toggleSort(key: 'name' | 'status' | 'category') {
   }
 }
 
+function isActiveStatus(status: TaskStatus): boolean {
+  return status !== 'DONE'
+}
+function adjustTaskCount(projectId: number, delta: number) {
+  if (delta === 0) return
+  projects.value = projects.value.map((p) => (p.id === projectId ? { ...p, taskCount: Math.max(0, p.taskCount + delta) } : p))
+}
 function taskSummary(project: Project): string {
   return project.taskCount ? `${project.taskCount} task${project.taskCount === 1 ? '' : 's'}` : 'No tasks'
 }
@@ -315,7 +322,7 @@ async function saveNewTask() {
     })
     activeTasks.value = [...activeTasks.value, created]
     const pid = activeProjectId.value
-    projects.value = projects.value.map((p) => (p.id === pid ? { ...p, taskCount: p.taskCount + 1 } : p))
+    if (pid !== null && isActiveStatus(created.status)) adjustTaskCount(pid, 1)
     newTaskOpen.value = false
   } catch (e) {
     newTaskError.value = e instanceof Error ? e.message : 'Failed to create task'
@@ -376,6 +383,7 @@ async function saveTaskDetail() {
   if (taskDetailInvalid.value || taskDetailSaving.value || taskDetailId.value === null) return
   taskDetailSaving.value = true
   taskDetailError.value = null
+  const previousTask = activeTasks.value.find((t) => t.id === taskDetailId.value)
   try {
     const updated = await updateTask(taskDetailId.value, {
       title: taskDetailTitle.value.trim(),
@@ -385,6 +393,10 @@ async function saveTaskDetail() {
       subtasks: taskDetailSubtasks.value.map((s) => ({ title: s.title, done: s.done })),
     })
     activeTasks.value = activeTasks.value.map((t) => (t.id === updated.id ? updated : t))
+    if (activeProjectId.value !== null && previousTask) {
+      const delta = Number(isActiveStatus(updated.status)) - Number(isActiveStatus(previousTask.status))
+      adjustTaskCount(activeProjectId.value, delta)
+    }
     taskDetailOpen.value = false
   } catch (e) {
     taskDetailError.value = e instanceof Error ? e.message : 'Failed to save task'
@@ -396,11 +408,12 @@ async function saveTaskDetail() {
 async function deleteTaskDetail() {
   if (taskDetailId.value === null) return
   const id = taskDetailId.value
+  const task = activeTasks.value.find((t) => t.id === id)
   try {
     await apiDeleteTask(id)
     activeTasks.value = activeTasks.value.filter((t) => t.id !== id)
     const pid = activeProjectId.value
-    projects.value = projects.value.map((p) => (p.id === pid ? { ...p, taskCount: Math.max(0, p.taskCount - 1) } : p))
+    if (pid !== null && task && isActiveStatus(task.status)) adjustTaskCount(pid, -1)
     taskDetailOpen.value = false
   } catch (e) {
     taskDetailError.value = e instanceof Error ? e.message : 'Failed to delete task'
@@ -434,6 +447,10 @@ async function onDrop(columnKey: TaskStatus, e: DragEvent) {
       subtasks: task.subtasks.map((s) => ({ title: s.title, done: s.done })),
     })
     activeTasks.value = activeTasks.value.map((t) => (t.id === updated.id ? updated : t))
+    if (activeProjectId.value !== null) {
+      const delta = Number(isActiveStatus(updated.status)) - Number(isActiveStatus(previousStatus))
+      adjustTaskCount(activeProjectId.value, delta)
+    }
   } catch (e) {
     activeTasks.value = activeTasks.value.map((t) => (t.id === taskId ? { ...t, status: previousStatus } : t))
     loadError.value = e instanceof Error ? e.message : 'Failed to move task'
