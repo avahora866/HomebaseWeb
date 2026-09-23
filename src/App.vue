@@ -4,9 +4,10 @@ import AppNav from './layout/AppNav.vue'
 import FinanceView from './finance/FinanceView.vue'
 import ProjectsView from './projects/ProjectsView.vue'
 import ResearchView from './research/ResearchView.vue'
+import LearningPathView from './learning/LearningPathView.vue'
 import SettingsView from './settings/SettingsView.vue'
 
-const view = ref<'finance' | 'projects' | 'research' | 'settings'>('finance')
+const view = ref<'finance' | 'projects' | 'research' | 'learning' | 'settings'>('finance')
 </script>
 
 <template>
@@ -14,5 +15,6 @@ const view = ref<'finance' | 'projects' | 'research' | 'settings'>('finance')
   <FinanceView v-if="view === 'finance'" />
   <ProjectsView v-else-if="view === 'projects'" />
   <ResearchView v-else-if="view === 'research'" />
+  <LearningPathView v-else-if="view === 'learning'" />
   <SettingsView v-else />
 </template>

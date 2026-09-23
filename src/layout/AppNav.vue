@@ -1,6 +1,6 @@
 <script setup lang="ts">
-defineProps<{ active: 'finance' | 'projects' | 'research' | 'settings' }>()
-const emit = defineEmits<{ navigate: [view: 'finance' | 'projects' | 'research' | 'settings'] }>()
+defineProps<{ active: 'finance' | 'projects' | 'research' | 'learning' | 'settings' }>()
+const emit = defineEmits<{ navigate: [view: 'finance' | 'projects' | 'research' | 'learning' | 'settings'] }>()
 </script>
 
 <template>
@@ -14,6 +14,9 @@ const emit = defineEmits<{ navigate: [view: 'finance' | 'projects' | 'research' 
     </button>
     <button class="app-nav-link" :class="{ active: active === 'research' }" @click="emit('navigate', 'research')">
       Research
+    </button>
+    <button class="app-nav-link" :class="{ active: active === 'learning' }" @click="emit('navigate', 'learning')">
+      Learning Path
     </button>
     <button
       class="app-nav-settings"
