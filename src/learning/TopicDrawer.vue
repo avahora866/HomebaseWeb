@@ -20,15 +20,16 @@ const caps = computed(() => props.detail.capabilities)
 const topicsById = computed(() => new Map(props.detail.topics.map((t) => [t.id, t])))
 const kids = computed(() => props.detail.topics.filter((t) => t.parentTopicId === props.topic.id))
 
-const path = computed(() => {
-  const names: string[] = []
+/** Root first — shown after the field and specialisation in the breadcrumb, each one a jump back up. */
+const ancestors = computed(() => {
+  const out: Topic[] = []
   for (let id = props.topic.parentTopicId; id !== null; ) {
     const t = topicsById.value.get(id)
     if (!t) break
-    names.unshift(t.name)
+    out.unshift(t)
     id = t.parentTopicId
   }
-  return [props.detail.fieldName, props.detail.name, ...names].join('  ›  ')
+  return out
 })
 
 const ratingNote = computed(() => {
@@ -212,7 +213,15 @@ watch(
     <aside class="lp-drawer" aria-label="Topic details">
       <div class="lp-drawer-head">
         <div class="lp-drawer-titles">
-          <p class="lp-path">{{ path }}</p>
+          <nav class="lp-path" aria-label="Topic path">
+            <span>{{ detail.fieldName }}</span>
+            <span class="lp-path-sep" aria-hidden="true">›</span>
+            <span>{{ detail.name }}</span>
+            <template v-for="a in ancestors" :key="a.id">
+              <span class="lp-path-sep" aria-hidden="true">›</span>
+              <button class="lp-path-link" :title="`Open ${a.name}`" @click="emit('select', a.id)">{{ a.name }}</button>
+            </template>
+          </nav>
           <input
             class="lp-title"
             v-model="nameDraft"
@@ -364,6 +373,12 @@ watch(
 .lp-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 .lp-drawer-titles { min-width: 0; flex: 1; }
 .lp-path { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-neutral-600); margin: 0 0 6px; }
+.lp-path-sep { margin: 0 0.5em; }
+.lp-path-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--color-accent-700);
+}
+.lp-path-link:hover { color: var(--color-accent); text-decoration: underline; }
 /* An input dressed as the heading, so renaming is just clicking into it. */
 .lp-title {
   display: block; width: 100%; margin: 0 0 0 -4px; padding: 0 4px;
