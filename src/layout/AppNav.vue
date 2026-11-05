@@ -5,7 +5,14 @@ const emit = defineEmits<{ navigate: [view: 'finance' | 'projects' | 'research' 
 
 <template>
   <div class="app-nav">
-    <span class="brand">Homebase</span>
+    <span class="brand">
+      <svg class="brand-mark" viewBox="0 0 56 39" aria-hidden="true">
+        <rect x="14" y="0" width="28" height="8" fill="currentColor" />
+        <rect x="7" y="13" width="42" height="8" fill="currentColor" />
+        <rect x="0" y="26" width="56" height="13" fill="#178a4f" />
+      </svg>
+      Homebase
+    </span>
     <button class="app-nav-link" :class="{ active: active === 'finance' }" @click="emit('navigate', 'finance')">
       Finance
     </button>
@@ -39,9 +46,20 @@ const emit = defineEmits<{ navigate: [view: 'finance' | 'projects' | 'research' 
   border-bottom: 1px solid var(--color-neutral-300);
 }
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
   font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
   margin-right: var(--space-4);
+}
+.brand-mark {
+  width: 26px;
+  height: 18px;
+  flex-shrink: 0;
 }
 .app-nav-link {
   font-family: var(--font-body);
