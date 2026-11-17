@@ -4,9 +4,11 @@ import { getProjects } from '../projects/api'
 import { STATUS_LABEL, TAG_CLASS } from '../projects/status'
 import type { Project } from '../projects/types'
 import ConfidenceDots from './ConfidenceDots.vue'
+import ResourceDialog from './ResourceDialog.vue'
+import ResourceList from './ResourceList.vue'
 import { addLog, addPrerequisite, deleteLog, deleteTopic, linkProject, removePrerequisite, unlinkProject, updateTopic } from './api'
 import { formatRating } from './rating'
-import type { SpecialisationDetail, Topic, TopicInput } from './types'
+import type { LearningResource, SpecialisationDetail, Topic, TopicInput } from './types'
 
 const props = defineProps<{ detail: SpecialisationDetail; topic: Topic }>()
 const emit = defineEmits<{
@@ -180,6 +182,14 @@ async function saveLink() {
   }
 }
 
+// --- resources ---
+/** Open while adding (resource null) or editing one. */
+const resourceDialog = ref<{ resource: LearningResource | null } | null>(null)
+function onResourceSaved(next: SpecialisationDetail) {
+  resourceDialog.value = null
+  emit('update', next)
+}
+
 // --- delete ---
 function descendantCount(id: number): number {
   return props.detail.topics
@@ -203,6 +213,7 @@ watch(
     addingPrereq.value = false
     linking.value = false
     logDraft.value = ''
+    resourceDialog.value = null
   },
 )
 </script>
@@ -305,6 +316,15 @@ watch(
         </div>
       </div>
 
+      <div class="lp-section">
+        <div class="lp-section-head">
+          <span class="lp-label">Resources</span>
+          <button class="lp-link-btn" @click="resourceDialog = { resource: null }">+ Add</button>
+        </div>
+        <ResourceList v-if="topic.resources.length" :resources="topic.resources" @edit="(r) => (resourceDialog = { resource: r })" />
+        <span v-else class="lp-none">No courses, books or videos yet.</span>
+      </div>
+
       <div v-if="caps.allowsLogs" class="lp-section lp-logs">
         <span class="lp-label">Logs</span>
         <div class="lp-inline-add">
@@ -353,6 +373,15 @@ watch(
         <button class="btn btn-secondary" :disabled="!canNest" @click="emit('add-subtopic', topic)">{{ subtopicLabel }}</button>
       </div>
     </aside>
+
+    <ResourceDialog
+      v-if="resourceDialog"
+      :resource="resourceDialog.resource"
+      :target="{ topicId: topic.id }"
+      :placement="topic.name"
+      @close="resourceDialog = null"
+      @saved="onResourceSaved"
+    />
   </div>
 </template>
 

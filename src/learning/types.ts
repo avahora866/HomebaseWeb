@@ -38,6 +38,33 @@ export interface ProjectLink {
   projectStatus: ProjectStatus
 }
 
+export type ResourceType = 'COURSE' | 'BOOK' | 'VIDEO' | 'ARTICLE' | 'OTHER'
+export type ResourceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'DROPPED'
+
+/** Something being learned from — a course, book, video or article. Informational only. */
+export interface LearningResource {
+  id: number
+  title: string
+  type: ResourceType
+  url: string | null
+  status: ResourceStatus
+  /** "4 of 12" — both null, or both set */
+  progressCurrent: number | null
+  progressTotal: number | null
+  notes: string | null
+  createdAt: string
+}
+
+export interface ResourceInput {
+  title: string
+  type: ResourceType
+  url: string | null
+  status: ResourceStatus
+  progressCurrent: number | null
+  progressTotal: number | null
+  notes: string | null
+}
+
 export interface TopicLog {
   id: number
   createdAt: string
@@ -60,6 +87,8 @@ export interface Topic {
   /** Newest first */
   logs: TopicLog[]
   projectLinks: ProjectLink[]
+  /** Oldest first */
+  resources: LearningResource[]
   createdAt: string
 }
 
@@ -84,4 +113,6 @@ export interface SpecialisationDetail {
   topics: Topic[]
   /** Links on the specialisation itself — topic links are on each topic */
   projectLinks: ProjectLink[]
+  /** Resources on the specialisation itself — topic resources are on each topic */
+  resources: LearningResource[]
 }

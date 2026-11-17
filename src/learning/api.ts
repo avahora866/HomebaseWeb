@@ -1,5 +1,5 @@
 import { resolveApiBaseUrl } from '../settings/apiEnvironment'
-import type { FieldInput, LearningField, SpecialisationDetail, TopicInput } from './types'
+import type { FieldInput, LearningField, ResourceInput, SpecialisationDetail, TopicInput } from './types'
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${resolveApiBaseUrl()}${path}`)
@@ -97,4 +97,21 @@ export function linkProject(
 
 export function unlinkProject(id: number): Promise<SpecialisationDetail> {
   return sendJson(`/learning/project-links/${id}`, 'DELETE')
+}
+
+/** Attaches to the topic when given one, otherwise to the specialisation itself. */
+export function createResource(
+  target: { topicId: number } | { specialisationId: number },
+  resource: ResourceInput,
+): Promise<SpecialisationDetail> {
+  return sendJson('/learning/resources', 'POST', { topicId: null, specialisationId: null, ...target, ...resource })
+}
+
+/** Placement is fixed at creation — only the resource's own fields change. */
+export function updateResource(id: number, resource: ResourceInput): Promise<SpecialisationDetail> {
+  return sendJson(`/learning/resources/${id}`, 'PUT', resource)
+}
+
+export function deleteResource(id: number): Promise<SpecialisationDetail> {
+  return sendJson(`/learning/resources/${id}`, 'DELETE')
 }

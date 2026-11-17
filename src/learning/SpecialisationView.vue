@@ -4,6 +4,8 @@ import { getProjects } from '../projects/api'
 import { STATUS_LABEL, TAG_CLASS } from '../projects/status'
 import type { Project } from '../projects/types'
 import ConfidenceDots from './ConfidenceDots.vue'
+import ResourceDialog from './ResourceDialog.vue'
+import ResourceList from './ResourceList.vue'
 import TopicDrawer from './TopicDrawer.vue'
 import {
   createTopic,
@@ -14,7 +16,7 @@ import {
   unlinkProject,
 } from './api'
 import { COVERAGE_HINT, formatRating, rollupLabel } from './rating'
-import type { SpecialisationDetail, Topic } from './types'
+import type { LearningResource, SpecialisationDetail, Topic } from './types'
 
 const props = defineProps<{ specialisationId: number }>()
 const emit = defineEmits<{ back: [] }>()
@@ -75,6 +77,7 @@ const rows = computed(() => {
       if (t.prerequisiteIds.length) meta.push(`⇢${t.prerequisiteIds.length}`)
       if (t.logs.length) meta.push(`▤${t.logs.length}`)
       if (t.projectLinks.length) meta.push(`◈${t.projectLinks.length}`)
+      if (t.resources.length) meta.push(`◎${t.resources.length}`)
       out.push({ topic: t, hasKids, open, meta: meta.join(' ') })
       if (hasKids && open) walk(t.id)
     }
@@ -238,6 +241,13 @@ async function removeLink(id: number) {
   }
 }
 
+// --- specialisation-level resources ---
+const resourceDialog = ref<{ resource: LearningResource | null } | null>(null)
+function onResourceSaved(next: SpecialisationDetail) {
+  resourceDialog.value = null
+  applyDetail(next)
+}
+
 const parentRatingNote = computed(() => {
   const parent = topicDialogParent.value
   if (!parent || parent.confidenceRating === null) return null
@@ -322,6 +332,19 @@ const parentRatingNote = computed(() => {
         <button class="btn btn-primary" @click="openNewTopic(null)">+ New topic</button>
       </div>
 
+      <div class="lp-spec-links">
+        <div class="lp-spec-links-head">
+          <span class="lp-section-label">Resources</span>
+          <button class="lp-text-btn" @click="resourceDialog = { resource: null }">+ Add</button>
+        </div>
+        <ResourceList
+          v-if="detail.resources.length"
+          :resources="detail.resources"
+          @edit="(r) => (resourceDialog = { resource: r })"
+        />
+        <span v-else class="lp-none">Courses, books or videos for {{ detail.name }} as a whole — topic ones live on each topic.</span>
+      </div>
+
       <div v-if="detail.capabilities.allowsProjectLinks && detail.projectLinks.length" class="lp-spec-links">
         <span class="lp-section-label">Linked projects</span>
         <div v-for="l in detail.projectLinks" :key="l.id" class="lp-link-row">
@@ -343,6 +366,15 @@ const parentRatingNote = computed(() => {
         @select="selectTopic"
         @update="applyDetail"
         @add-subtopic="openNewTopic"
+      />
+
+      <ResourceDialog
+        v-if="resourceDialog"
+        :resource="resourceDialog.resource"
+        :target="{ specialisationId: detail.id }"
+        :placement="detail.name"
+        @close="resourceDialog = null"
+        @saved="onResourceSaved"
       />
 
       <!-- new topic / subtopic dialog — after the drawer so it stacks above it -->
@@ -472,6 +504,10 @@ const parentRatingNote = computed(() => {
 
 .lp-spec-links { display: flex; flex-direction: column; gap: 8px; margin-top: var(--space-6); max-width: 560px; }
 .lp-section-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-600); }
+.lp-spec-links-head { display: flex; align-items: baseline; justify-content: space-between; }
+.lp-text-btn { background: none; border: none; padding: 0; font: inherit; font-size: 12px; color: var(--color-accent-700); cursor: pointer; }
+.lp-text-btn:hover { text-decoration: underline; }
+.lp-none { font-size: 13px; color: var(--color-neutral-500); }
 .lp-link-row {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
   padding: 9px 12px; background: var(--color-surface); border-radius: var(--radius-md);
