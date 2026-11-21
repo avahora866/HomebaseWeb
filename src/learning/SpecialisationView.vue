@@ -137,6 +137,7 @@ async function saveTopic() {
   try {
     const next = await createTopic(detail.value.id, {
       name: topicName.value.trim(),
+      description: null,
       parentTopicId: parent?.id ?? null,
       suggestedOrder: null,
       confidenceRating: null,
@@ -315,7 +316,7 @@ const parentRatingNote = computed(() => {
               {{ r.open ? '▼' : '▶' }}
             </button>
             <span v-else class="lp-leaf"><span></span></span>
-            <span class="lp-name">{{ r.topic.name }}</span>
+            <span class="lp-name" :title="r.topic.description ?? undefined">{{ r.topic.name }}</span>
             <span v-if="r.hasKids && r.topic.effectiveRating !== null" class="lp-badge">derived</span>
           </span>
           <span class="lp-col-confidence lp-row-rating">

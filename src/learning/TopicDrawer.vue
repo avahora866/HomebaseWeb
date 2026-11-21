@@ -75,6 +75,7 @@ function put(patch: Partial<TopicInput>, failure: string) {
     () =>
       updateTopic(t.id, {
         name: t.name,
+        description: t.description,
         parentTopicId: t.parentTopicId,
         suggestedOrder: t.suggestedOrder,
         confidenceRating: t.confidenceRating,
@@ -97,6 +98,17 @@ function saveName() {
     return
   }
   if (name !== props.topic.name) put({ name }, 'Failed to rename topic')
+}
+
+// --- description ---
+const descriptionDraft = ref(props.topic.description ?? '')
+watch(
+  () => props.topic.description,
+  (description) => (descriptionDraft.value = description ?? ''),
+)
+function saveDescription() {
+  const description = descriptionDraft.value.trim() || null
+  if (description !== props.topic.description) put({ description }, 'Failed to save description')
 }
 
 // --- rating ---
@@ -246,6 +258,16 @@ watch(
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg>
         </button>
       </div>
+
+      <textarea
+        class="lp-description"
+        v-model="descriptionDraft"
+        rows="2"
+        maxlength="4000"
+        placeholder="Add a description…"
+        aria-label="Topic description"
+        @blur="saveDescription"
+      ></textarea>
 
       <p v-if="error" class="lp-error">{{ error }}</p>
 
@@ -416,6 +438,16 @@ watch(
 }
 .lp-title:hover { border-color: var(--color-divider); }
 .lp-title:focus-visible { border-color: var(--color-accent); outline: none; background: var(--color-bg); }
+/* Same click-to-edit treatment as the title; grows with its text where the browser supports it. */
+.lp-description {
+  display: block; width: calc(100% + 8px); margin: calc(var(--space-2) * -1) 0 0 -4px; padding: 4px;
+  font: inherit; font-size: 13.5px; line-height: 1.5; color: var(--color-neutral-700);
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-md);
+  resize: vertical; field-sizing: content; min-height: 2.5em;
+}
+.lp-description::placeholder { color: var(--color-neutral-500); font-style: italic; }
+.lp-description:hover { border-color: var(--color-divider); }
+.lp-description:focus-visible { border-color: var(--color-accent); outline: none; background: var(--color-bg); }
 .lp-close { background: none; border: none; color: var(--color-neutral-600); cursor: pointer; padding: 4px; display: flex; }
 .lp-close:hover { color: var(--color-text); }
 

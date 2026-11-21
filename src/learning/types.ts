@@ -75,6 +75,7 @@ export interface Topic {
   id: number
   parentTopicId: number | null
   name: string
+  description: string | null
   suggestedOrder: number | null
   /** Stored 1–5 rating — only ever set on a leaf */
   confidenceRating: number | null
@@ -92,8 +93,10 @@ export interface Topic {
   createdAt: string
 }
 
+/** A full replace — leaving description null clears it. */
 export interface TopicInput {
   name: string
+  description: string | null
   parentTopicId: number | null
   suggestedOrder: number | null
   confidenceRating: number | null
