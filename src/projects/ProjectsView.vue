@@ -778,7 +778,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
 .proj-board-title { font-size: clamp(28px, 3.4vw, 40px); margin-bottom: var(--space-2); }
 .proj-board-head .tag + .tag { margin-left: var(--space-2); }
 .proj-board-head.has-desc { margin-bottom: var(--space-3); }
-.proj-board-desc { max-width: 720px; margin: 0 0 var(--space-6); font-size: 14px; line-height: 1.6; color: var(--color-neutral-700); white-space: pre-wrap; }
+.proj-board-desc { margin: 0 0 var(--space-6); font-size: 14px; line-height: 1.6; color: var(--color-neutral-700); white-space: pre-wrap; }
 .proj-board-actions { display: flex; gap: var(--space-2); }
 
 .proj-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); align-items: start; }
