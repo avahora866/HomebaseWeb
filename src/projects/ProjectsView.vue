@@ -28,6 +28,14 @@ const PRIORITIES: { key: TaskPriority | ''; label: string }[] = [
   { key: 'LOW', label: 'Low' },
 ]
 
+/**
+ * [openProjectId] opens straight onto that project's board — e.g. a project linked from a Learning
+ * Path topic — and [returnLabel] turns the board's back button into a way back there.
+ */
+const props = defineProps<{ openProjectId?: number | null; returnLabel?: string | null }>()
+const emit = defineEmits<{ return: [] }>()
+const returnTo = ref<string | null>(null)
+
 const view = ref<'list' | 'board'>('list')
 const projects = ref<Project[]>([])
 const categories = ref<Category[]>([])
@@ -60,9 +68,18 @@ async function loadCategories() {
   }
 }
 
-onMounted(() => {
-  loadProjects()
+onMounted(async () => {
   loadCategories()
+  if (props.openProjectId != null) {
+    returnTo.value = props.returnLabel ?? null
+    openBoard(props.openProjectId)
+  }
+  await loadProjects()
+  // The project may have been deleted since the link to it was shown.
+  if (activeProjectId.value !== null && !loadError.value && !projects.value.some((p) => p.id === activeProjectId.value)) {
+    backToList()
+    loadError.value = 'That project no longer exists.'
+  }
 })
 
 const filteredProjects = computed(() => {
@@ -143,6 +160,7 @@ async function openBoard(id: number) {
   await loadTasks()
 }
 function backToList() {
+  returnTo.value = null
   view.value = 'list'
   activeProjectId.value = null
   activeTasks.value = []
@@ -513,7 +531,9 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
     </template>
 
     <template v-else-if="view === 'board' && activeProject">
-      <button class="btn btn-ghost proj-back" @click="backToList">← Projects</button>
+      <button class="btn btn-ghost proj-back" @click="returnTo ? emit('return') : backToList()">
+        ← {{ returnTo ?? 'Projects' }}
+      </button>
       <p class="fin-kicker">Projects — Board</p>
       <div class="proj-board-head">
         <div>

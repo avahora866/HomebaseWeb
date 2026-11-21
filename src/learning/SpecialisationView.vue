@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onActivated, onDeactivated, onMounted, ref } from 'vue'
 import { getProjects } from '../projects/api'
 import { STATUS_LABEL, TAG_CLASS } from '../projects/status'
 import type { Project } from '../projects/types'
+import { openProjectKey } from '../navigation'
 import ConfidenceDots from './ConfidenceDots.vue'
 import ResourceDialog from './ResourceDialog.vue'
 import ResourceList from './ResourceList.vue'
@@ -38,6 +39,16 @@ async function load() {
 }
 
 onMounted(load)
+
+// Learning Path is kept alive while another tab (e.g. a linked project's board) is open — refresh
+// on the way back so project names and statuses, or a deleted project's link, are current.
+let wasAway = false
+onDeactivated(() => (wasAway = true))
+onActivated(() => {
+  if (wasAway) load()
+})
+
+const openProject = inject(openProjectKey, null)
 
 /** Every write returns the whole refreshed specialisation; drop the selection if its topic went with it. */
 function applyDetail(next: SpecialisationDetail) {
@@ -349,7 +360,9 @@ const parentRatingNote = computed(() => {
       <div v-if="detail.capabilities.allowsProjectLinks && detail.projectLinks.length" class="lp-spec-links">
         <span class="lp-section-label">Linked projects</span>
         <div v-for="l in detail.projectLinks" :key="l.id" class="lp-link-row">
-          <span class="lp-link-name">{{ l.projectName }}</span>
+          <button class="lp-link-name" :title="`Open ${l.projectName}`" @click="openProject?.(l.projectId, detail.name)">
+            {{ l.projectName }}
+          </button>
           <span class="lp-link-right">
             <span class="tag" :class="TAG_CLASS[l.projectStatus]">{{ STATUS_LABEL[l.projectStatus] }}</span>
             <button class="lp-remove" aria-label="Unlink project" title="Unlink" @click="removeLink(l.id)">
@@ -513,7 +526,12 @@ const parentRatingNote = computed(() => {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
   padding: 9px 12px; background: var(--color-surface); border-radius: var(--radius-md);
 }
-.lp-link-name { font-size: 13.5px; }
+/* The project's name opens its board in the project tracker. */
+.lp-link-name {
+  background: none; border: none; padding: 0; font: inherit; font-size: 13.5px; text-align: left;
+  color: var(--color-accent-700); cursor: pointer;
+}
+.lp-link-name:hover { color: var(--color-accent); text-decoration: underline; }
 .lp-link-right { display: flex; align-items: center; gap: var(--space-2); }
 .lp-remove { background: none; border: none; color: var(--color-neutral-500); cursor: pointer; padding: 0 2px; display: flex; }
 .lp-remove:hover { color: var(--color-accent-2-700); }

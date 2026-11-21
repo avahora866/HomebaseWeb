@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { getProjects } from '../projects/api'
 import { STATUS_LABEL, TAG_CLASS } from '../projects/status'
 import type { Project } from '../projects/types'
+import { openProjectKey } from '../navigation'
 import ConfidenceDots from './ConfidenceDots.vue'
 import ResourceDialog from './ResourceDialog.vue'
 import ResourceList from './ResourceList.vue'
@@ -170,6 +171,7 @@ function logTimestamp(iso: string): string {
 }
 
 // --- project links ---
+const openProject = inject(openProjectKey, null)
 const linking = ref(false)
 const projects = ref<Project[]>([])
 const linkChoice = ref<number | ''>('')
@@ -371,7 +373,9 @@ watch(
           <button v-if="!linking" class="lp-link-btn" @click="startLinking">+ Link project</button>
         </div>
         <div v-for="l in topic.projectLinks" :key="l.id" class="lp-link-row">
-          <span class="lp-link-name">{{ l.projectName }}</span>
+          <button class="lp-link-name" :title="`Open ${l.projectName}`" @click="openProject?.(l.projectId, topic.name)">
+            {{ l.projectName }}
+          </button>
           <span class="lp-link-right">
             <span class="tag" :class="TAG_CLASS[l.projectStatus]">{{ STATUS_LABEL[l.projectStatus] }}</span>
             <button class="lp-remove" aria-label="Unlink project" title="Unlink" @click="run(() => unlinkProject(l.id), 'Failed to unlink project')">
@@ -498,7 +502,12 @@ watch(
 .lp-log-note { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
 
 .lp-link-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 9px 12px; background: var(--color-bg); border-radius: var(--radius-md); }
-.lp-link-name { font-size: 13.5px; }
+/* The project's name opens its board in the project tracker. */
+.lp-link-name {
+  background: none; border: none; padding: 0; font: inherit; font-size: 13.5px; text-align: left;
+  color: var(--color-accent-700); cursor: pointer;
+}
+.lp-link-name:hover { color: var(--color-accent); text-decoration: underline; }
 .lp-link-right { display: flex; align-items: center; gap: var(--space-2); }
 .lp-remove { background: none; border: none; color: var(--color-neutral-500); cursor: pointer; padding: 0 2px; display: flex; }
 .lp-remove:hover { color: var(--color-accent-2-700); }
