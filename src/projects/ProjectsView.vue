@@ -535,7 +535,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
         ← {{ returnTo ?? 'Projects' }}
       </button>
       <p class="fin-kicker">Projects — Board</p>
-      <div class="proj-board-head">
+      <div class="proj-board-head" :class="{ 'has-desc': activeProject.description }">
         <div>
           <h1 class="fin-title proj-board-title">{{ activeProject.name }}</h1>
           <span class="tag" :class="TAG_CLASS[activeProject.status]">{{ STATUS_LABEL[activeProject.status] }}</span>
@@ -554,6 +554,7 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
           </button>
         </div>
       </div>
+      <p v-if="activeProject.description" class="proj-board-desc">{{ activeProject.description }}</p>
 
       <p v-if="tasksLoading" style="color: var(--color-neutral-500)">Loading tasks…</p>
       <div v-else class="proj-board">
@@ -776,6 +777,8 @@ function subtaskLabel(subtasks: { done: boolean }[]): string {
 .proj-board-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap; }
 .proj-board-title { font-size: clamp(28px, 3.4vw, 40px); margin-bottom: var(--space-2); }
 .proj-board-head .tag + .tag { margin-left: var(--space-2); }
+.proj-board-head.has-desc { margin-bottom: var(--space-3); }
+.proj-board-desc { max-width: 720px; margin: 0 0 var(--space-6); font-size: 14px; line-height: 1.6; color: var(--color-neutral-700); white-space: pre-wrap; }
 .proj-board-actions { display: flex; gap: var(--space-2); }
 
 .proj-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); align-items: start; }
